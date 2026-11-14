@@ -145,3 +145,15 @@ main > h2, .stats, footer, dialog { text-align: center; }
 .set.next-set { border-radius: 10px; padding: 8px 4px 4px; outline: 1px solid #89e3f8; background: #15334a; }
 .set.next-set b { color: #a8e8fb; }
 .set.next-set button { border-color: #89e3f8; }
+
+@media (max-width: 480px) {
+  .date-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 12px;
+  }
+  .date-controls label { width: min(100%, 190px); }
+  .date-controls input { display: block; max-width: 100%; }
+  .date-controls button { min-width: 100px; }
+}
