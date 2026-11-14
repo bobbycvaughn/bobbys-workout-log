@@ -55,6 +55,7 @@ let plan = { 1: 'A', 3: 'B', 5: 'C' }[now.getDay()] || 'A';
 let tab = 'workout';
 let sessions = {};
 let extras = {};
+let notes = {};
 
 function validBackup(data) {
   if (data?.version !== 1 || !data.sessions || Array.isArray(data.sessions) ||
@@ -65,6 +66,12 @@ function validBackup(data) {
           row && typeof row.name === 'string' && row.name.trim().length > 0 && row.name.length <= 80 &&
           Number.isInteger(row.sets) && row.sets > 0 && row.sets <= 99 &&
           Number.isInteger(row.reps) && row.reps > 0 && row.reps <= 999)))) return false;
+  if (data.notes !== undefined && (!data.notes || typeof data.notes !== 'object' ||
+      Array.isArray(data.notes) || !Object.values(data.notes).every(note => typeof note === 'string' && note.length <= 500))) return false;
+  if (Object.values(data.extras || {}).some(rows => rows.some(row => row.actual !== undefined &&
+      (!Array.isArray(row.actual) || row.actual.length !== row.sets || row.actual.some(set =>
+        !set || typeof set.done !== 'boolean' || !(set.weight === null || Number.isFinite(set.weight) && set.weight >= 0) ||
+        !Number.isInteger(set.count) || set.count < 1 || set.count > 999))))) return false;
   return Object.entries(data.sessions).every(([key, sets]) => {
     const match = /^(\d{4}-\d{2}-\d{2})-([ABC])$/.exec(key);
     return match && Number.isFinite(Date.parse(match[1])) && Array.isArray(sets) && sets.length === 12 &&
@@ -79,12 +86,23 @@ function validBackup(data) {
 }
 
 try {
+  const selection = JSON.parse(localStorage.getItem(storageKey + '-selection'));
+  if (selection && /^\d{4}-\d{2}-\d{2}$/.test(selection.date) &&
+      Number.isFinite(Date.parse(selection.date)) && ['A', 'B', 'C'].includes(selection.plan)) {
+    date = selection.date;
+    plan = selection.plan;
+  }
+} catch {
+  // The current date and default workout are usable if preferences are unavailable.
+}
+try {
   const saved = localStorage.getItem(storageKey);
   if (saved) {
     const data = JSON.parse(saved);
     if (!validBackup(data)) throw new Error('Invalid saved data');
     sessions = data.sessions;
     extras = data.extras || {};
+    notes = data.notes || {};
   }
 } catch {
   status.textContent = 'Saved data could not be read. This session may only be available until you close the app.';
@@ -92,7 +110,7 @@ try {
 
 function save(message = '') {
   try {
-    localStorage.setItem(storageKey, JSON.stringify({ version: 1, sessions, extras }));
+    localStorage.setItem(storageKey, JSON.stringify({ version: 1, sessions, extras, notes }));
     status.textContent = message;
   } catch {
     status.textContent = 'Your browser could not save these changes. Export a backup before closing this page.';
@@ -190,7 +208,7 @@ function workout() {
       }).join('')}</section>`; }).join('')}`;
 
   view.insertAdjacentHTML('beforeend', `<section class="card"><h3>Custom exercises</h3>
-    <ul id="extra-list"></ul>
+    <div id="extra-list"></div>
     <form id="extra-form"><label>Exercise<input name="exercise" maxlength="80" required></label>
       <label>Sets<input name="sets" type="number" inputmode="numeric" min="1" max="99" value="2" required></label>
       <label>Reps per set<input name="reps" type="number" inputmode="numeric" min="1" max="999" value="10" required></label>
@@ -200,8 +218,59 @@ function workout() {
   function showExtras() {
     list.replaceChildren();
     (extras[key] || []).forEach((row, index) => {
-      const item = document.createElement('li');
-      item.textContent = extraLabel(row) + ' ';
+      const item = document.createElement('section');
+      item.className = 'card';
+      const title = document.createElement('h3');
+      title.textContent = row.name;
+      item.append(title);
+      const earlier = loggedSessions().find(log => log.date < date &&
+        (extras[log.key] || []).some(extra => sameExercise(extra.name, row.name) && actualSets(extra).some(set => set.done)));
+      if (earlier) {
+        const previous = document.createElement('p');
+        previous.className = 'last-time';
+        previous.textContent = 'Last time · ' + (extras[earlier.key] || [])
+          .filter(extra => sameExercise(extra.name, row.name))
+          .flatMap(extra => actualSets(extra).flatMap((set, i) => set.done
+            ? ['Set ' + (i + 1) + ' · ' + extraSetLabel(set)] : [])).join(' / ');
+        item.append(previous);
+      }
+      actualSets(row).forEach((set, offset) => {
+        const line = document.createElement('div');
+        line.className = 'set';
+        line.innerHTML = `<b>Set ${offset + 1}</b><label>lb (optional)<input type="number" min="0" step="any" inputmode="decimal"></label>
+          <label>Reps<input type="number" min="1" max="999" inputmode="numeric" required></label><button type="button">✓</button>`;
+        const [weight, count] = line.querySelectorAll('input');
+        const complete = line.querySelector('button');
+        weight.value = set.weight ?? '';
+        count.value = set.count;
+        complete.setAttribute('aria-label', 'Complete ' + row.name + ', set ' + (offset + 1));
+        const refresh = () => complete.setAttribute('aria-pressed', set.done);
+        const edit = () => {
+          if (!weight.validity.valid || !count.validity.valid) return false;
+          set.weight = weight.value === '' ? null : weight.valueAsNumber;
+          set.count = count.valueAsNumber;
+          save();
+          return true;
+        };
+        weight.oninput = count.oninput = edit;
+        complete.onclick = () => {
+          if (!edit()) {
+            weight.reportValidity();
+            count.reportValidity();
+            return;
+          }
+          set.done = !set.done;
+          save();
+          refresh();
+          if (set.done) {
+            restId = 'custom:' + row.name.toLowerCase();
+            timer.querySelector('strong').textContent = row.name;
+            startRest(restOverrides.get(restId) ?? 60);
+          }
+        };
+        refresh();
+        item.append(line);
+      });
       const remove = document.createElement('button');
       remove.textContent = 'Remove';
       remove.setAttribute('aria-label', 'Remove ' + row.name);
@@ -223,10 +292,44 @@ function workout() {
     const fields = new FormData(form);
     const name = fields.get('exercise').trim();
     if (!name) return;
-    (extras[key] ||= []).push({ name, sets: Number(fields.get('sets')), reps: Number(fields.get('reps')) });
+    const sets = Number(fields.get('sets'));
+    const reps = Number(fields.get('reps'));
+    const actual = Array.from({ length: sets }, () => ({ count: reps, weight: null, done: false }));
+    (extras[key] ||= []).push({ name, sets, reps, actual });
     save();
     form.reset();
     showExtras();
+  };
+
+  view.insertAdjacentHTML('beforeend', '<section class="card"><label for="workout-note">Workout note</label><textarea id="workout-note" maxlength="500" rows="3"></textarea><p id="previous-note"></p><button id="finish-workout">Finish workout</button></section>');
+  const note = view.querySelector('#workout-note');
+  note.value = notes[key] || '';
+  note.oninput = () => {
+    if (note.value.trim()) notes[key] = note.value;
+    else delete notes[key];
+    save();
+  };
+  const previousNote = Object.keys(notes).sort().reverse().find(entry => entry.endsWith('-' + plan) && entry.slice(0, -2) < date);
+  if (previousNote) view.querySelector('#previous-note').textContent = 'Last Workout ' + plan + ' note · ' + notes[previousNote];
+  view.querySelector('#finish-workout').onclick = () => {
+    const groups = workoutResults({ key, plan, sets });
+    const completed = groups.flatMap(group => group.sets).filter(set => set.done).length;
+    const skipped = groups.flatMap(group => group.sets).length - completed;
+    const prior = loggedSessions().filter(log => log.date < date).flatMap(workoutResults);
+    const score = (a, b) => (a.weight ?? 0) - (b.weight ?? 0) || a.count - b.count;
+    const best = groups.filter(group => {
+      const previous = prior.filter(item => item.id === group.id).flatMap(item => item.sets).filter(set => set.done);
+      return previous.length && group.sets.some(set => set.done && previous.every(other => score(set, other) > 0));
+    }).map(group => group.name);
+    const summary = document.querySelector('#finish-summary');
+    summary.querySelector('p').textContent = completed + ' completed · ' + skipped + ' skipped';
+    summary.querySelector('ul').replaceChildren(...best.map(name => {
+      const item = document.createElement('li');
+      item.textContent = name;
+      return item;
+    }));
+    summary.querySelector('h3').textContent = best.length ? 'Personal bests' : 'No new personal bests';
+    summary.showModal();
   };
 
   view.querySelectorAll('[data-guide]').forEach(link => link.onclick = event => {
@@ -292,19 +395,39 @@ function workout() {
 }
 
 function loggedSessions() {
-  return [...new Set([...Object.keys(sessions), ...Object.keys(extras)])].sort().reverse()
+  return [...new Set([...Object.keys(sessions), ...Object.keys(extras), ...Object.keys(notes)])].sort().reverse()
     .map(key => {
       const plan = key.at(-1);
       return { key, date: key.slice(0, -2), plan, sets: sessions[key] || defaults(program[plan].exercises) };
-    }).filter(log => log.sets.some(set => set.done) || extras[log.key]?.length);
+    }).filter(log => log.sets.some(set => set.done) || extras[log.key]?.some(row => actualSets(row).some(set => set.done)) || notes[log.key]);
 }
 
 function setLabel(set) {
   return set.weight === null ? `${set.count} sec` : `${set.weight} lb × ${set.count}`;
 }
 
-function extraLabel(row) {
-  return row.name + ' · ' + row.sets + ' sets × ' + row.reps + ' reps';
+function actualSets(row) {
+  row.actual ??= Array.from({ length: row.sets }, () => ({ weight: null, count: row.reps, done: true }));
+  return row.actual;
+}
+
+function sameExercise(a, b) {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+function extraSetLabel(set) {
+  return (set.weight === null ? '' : 'Weight ' + set.weight + ' lb · ') + 'Reps ' + set.count;
+}
+
+function workoutResults(log) {
+  return [
+    ...program[log.plan].exercises.map(([id, name], index) => ({
+      id, name, sets: log.sets.slice(index * 2, index * 2 + 2),
+    })),
+    ...(extras[log.key] || []).map(row => ({
+      id: 'custom:' + row.name.toLowerCase(), name: row.name, sets: actualSets(row),
+    })),
+  ];
 }
 
 function historyChart(logs) {
@@ -323,8 +446,8 @@ function historyChart(logs) {
       if (sets.length) add(id, name, sets);
     });
     for (const row of extras[log.key] || []) {
-      add('custom:' + row.name.toLowerCase(), row.name + ' (custom)',
-        [{ count: row.reps, weight: undefined }]);
+      const sets = actualSets(row).filter(set => set.done);
+      if (sets.length) add('custom:' + row.name.toLowerCase(), row.name + ' (custom)', sets);
     }
   }
   const exercise = card.querySelector('#chart-exercise');
@@ -337,8 +460,9 @@ function historyChart(logs) {
   }
   for (const [id, item] of byExercise) exercise.add(new Option(item.name, id));
   function renderChart() {
-    const points = byExercise.get(exercise.value).points.slice(-12);
     const field = measure.value;
+    const points = byExercise.get(exercise.value).points
+      .filter(point => point.sets.some(set => typeof set[field] === 'number')).slice(-12);
     const unit = measure.selectedOptions[0].textContent;
     const values = points.map(point => Math.max(...point.sets.map(set => set[field])));
     const max = Math.max(1, ...values);
@@ -361,9 +485,9 @@ function historyChart(logs) {
   }
   function chooseExercise() {
     const weight = byExercise.get(exercise.value).points[0].sets[0].weight;
-    const count = weight === null ? 'Seconds' : 'Reps';
+    const count = weight === null && !exercise.value.startsWith('custom:') ? 'Seconds' : 'Reps';
     measure.replaceChildren();
-    if (typeof weight === 'number') measure.add(new Option(
+    if (byExercise.get(exercise.value).points.some(point => point.sets.some(set => typeof set.weight === 'number'))) measure.add(new Option(
       ['incline', 'db-curl', 'lateral'].includes(exercise.value) ? 'Weight (lb each)' : 'Weight (lb)', 'weight'));
     measure.add(new Option(count, 'count'));
     renderChart();
@@ -386,10 +510,18 @@ function history() {
   view.querySelectorAll('[data-extra-history]').forEach(list => {
     for (const row of extras[list.dataset.extraHistory] || []) {
       const item = document.createElement('li');
-      item.textContent = extraLabel(row);
+      const completed = actualSets(row).flatMap((set, index) => set.done ? ['Set ' + (index + 1) + ' · ' + extraSetLabel(set)] : []);
+      if (!completed.length) continue;
+      item.textContent = row.name + ' · ' + completed.join(' / ');
       list.append(item);
     }
   });
+  for (const log of logs) {
+    if (!notes[log.key]) continue;
+    const note = document.createElement('p');
+    note.textContent = 'Workout note · ' + notes[log.key];
+    view.querySelector('[data-extra-history="' + log.key + '"]').after(note);
+  }
   historyChart(logs);
   view.querySelectorAll('[data-edit]').forEach(button => button.onclick = () => {
     date = button.dataset.edit.slice(0, -2);
@@ -403,7 +535,7 @@ function history() {
 function progress() {
   const logs = loggedSessions();
   const completed = logs.reduce((sum, log) => sum + log.sets.filter(set => set.done).length +
-    (extras[log.key] || []).reduce((total, row) => total + row.sets, 0), 0);
+    (extras[log.key] || []).reduce((total, row) => total + actualSets(row).filter(set => set.done).length, 0), 0);
   const full = logs.filter(log => log.sets.every(set => set.done)).length;
   const bests = new Map();
   const compare = (a, b) => (a.weight ?? 0) - (b.weight ?? 0) || a.count - b.count;
@@ -428,6 +560,11 @@ function progress() {
 }
 
 function render() {
+  try {
+    localStorage.setItem(storageKey + '-selection', JSON.stringify({ date, plan }));
+  } catch {
+    // Selection is still available while the current page is open.
+  }
   document.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', button.dataset.tab === tab));
   ({ workout, history, progress })[tab]();
 }
@@ -439,7 +576,7 @@ document.querySelector('nav').onclick = event => {
 };
 
 document.querySelector('#export').onclick = () => {
-  const blob = new Blob([JSON.stringify({ version: 1, sessions, extras }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ version: 1, sessions, extras, notes }, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -460,6 +597,7 @@ backup.onchange = async () => {
     if (!confirm('Restore this backup? It will replace all workout data currently in this browser.')) return;
     sessions = data.sessions;
     extras = data.extras || {};
+    notes = data.notes || {};
     save('Backup restored.');
     render();
   } catch {
