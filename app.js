@@ -505,7 +505,7 @@ function history() {
       const sets = log.sets.slice(index * 2, index * 2 + 2)
         .flatMap((set, offset) => set.done ? [`Set ${offset + 1} · ${setLabel(set)}`] : []);
       return sets.length ? `<li><strong>${name}</strong>${qualifier === 'each' ? ' (lb each)' : ''}<br>${sets.join(' · ')}</li>` : '';
-    }).join('')}</ul><ul data-extra-history="${log.key}"></ul><button data-edit="${log.key}">Edit workout</button></details>`).join('')
+    }).join('')}</ul><ul data-extra-history="${log.key}"></ul><button data-edit="${log.key}">Edit workout</button> <button data-delete="${log.key}">Delete workout</button></details>`).join('')
     : '<p>Mark a set complete to start your history.</p>');
   view.querySelectorAll('[data-extra-history]').forEach(list => {
     for (const row of extras[list.dataset.extraHistory] || []) {
@@ -523,6 +523,16 @@ function history() {
     view.querySelector('[data-extra-history="' + log.key + '"]').after(note);
   }
   historyChart(logs);
+  view.querySelectorAll('[data-delete]').forEach(button => button.onclick = () => {
+    const key = button.dataset.delete;
+    const description = dateLabel(key.slice(0, -2)) + ' · Workout ' + key.at(-1);
+    if (!confirm('Delete ' + description + '? This removes its sets, custom exercises, and note.')) return;
+    delete sessions[key];
+    delete extras[key];
+    delete notes[key];
+    save('Deleted ' + description + '.');
+    render();
+  });
   view.querySelectorAll('[data-edit]').forEach(button => button.onclick = () => {
     date = button.dataset.edit.slice(0, -2);
     plan = button.dataset.edit.at(-1);
