@@ -70,3 +70,5 @@ input { background: #0c1727; }
 dialog { color: inherit; width: min(440px, calc(100% - 32px)); }
 dialog::backdrop { background: #050a13c7; }
 dialog button { margin-top: 16px; min-width: 88px; }
+
+#form-video { display: inline-flex; align-items: center; min-height: 44px; color: #a8e8fb; font-weight: 700; }

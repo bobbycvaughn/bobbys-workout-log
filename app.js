@@ -130,6 +130,9 @@ function workout() {
     const dialog = document.querySelector('#form-guide');
     dialog.querySelector('h2').textContent = exercises.find(exercise => exercise[0] === id)[1];
     dialog.querySelector('p').textContent = form[id];
+    const exercise = dialog.querySelector('h2').textContent;
+    const query = id === 'plank' ? 'forearm plank proper form' : exercise + ' proper form demonstration';
+    dialog.querySelector('#form-video').href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query);
     dialog.showModal();
   });
 
