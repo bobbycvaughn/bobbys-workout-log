@@ -190,12 +190,12 @@ function workout() {
       `<button data-plan="${letter}" aria-pressed="${letter === plan}">${item.day.slice(0, 3)} · ${letter}</button>`).join('')}</div>
     <div class="session"><div><h2>${weekday} Workout ${plan}</h2>
     <p id="set-total">${sets.filter(set => set.done).length} of 12 sets complete</p></div>
-    <label>Workout date<input type="date" id="date" value="${date}"></label></div>
+    <div class="date-controls"><label>Workout date<input type="date" id="date" value="${date}"></label><button id="today" ${date === today ? 'disabled' : ''}>Today</button></div></div>
     ${exercises.map(([id, name, weight, count, range, qualifier], exerciseIndex) => {
       const last = lastTime(id);
       return `
       <section class="card"><div class="exercise-title"><h3>${name}</h3><a href="#form-${id}" data-guide="${id}" aria-label="How to do ${name}">How to <span aria-hidden="true">↗</span></a></div>
-      <p>${weight === null ? 'Bodyweight' : weight + ' lb' + (qualifier ? ' ' + qualifier : '')}
+      <p><strong>Target</strong> · ${weight === null ? 'Bodyweight' : weight + ' lb' + (qualifier ? ' ' + qualifier : '')}
       · 2 × ${range || count}${weight === null ? ' sec' : ' reps'}</p>
       ${last.length ? `<p class="last-time"><strong>Last time</strong><br>${last.join('<br>')}</p>` : ''}
       ${sets.slice(exerciseIndex * 2, exerciseIndex * 2 + 2).map((set, offset) => {
@@ -204,7 +204,7 @@ function workout() {
         return `<div class="set"><b>Set ${offset + 1}</b>
           ${weight === null ? '<span></span>' : `<label>lb${qualifier === 'each' ? ' each' : ''}<input type="number" min="0" step="any" inputmode="decimal" data-index="${index}" data-field="weight" aria-label="${label}, pounds" value="${set.weight}"></label>`}
           <label>${weight === null ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${weight === null ? 'seconds' : 'reps'}" value="${set.count}"></label>
-          <button data-complete="${index}" aria-pressed="${set.done}" aria-label="Complete ${label}">✓</button></div>`;
+          <button data-complete="${index}" aria-pressed="${set.done}" aria-label="${set.done ? 'Undo' : 'Complete'} ${label}">${set.done ? '✓ Completed' : 'Done'}</button></div>`;
       }).join('')}</section>`; }).join('')}`;
 
   view.insertAdjacentHTML('beforeend', `<section class="card"><h3>Custom exercises</h3>
@@ -244,7 +244,11 @@ function workout() {
         weight.value = set.weight ?? '';
         count.value = set.count;
         complete.setAttribute('aria-label', 'Complete ' + row.name + ', set ' + (offset + 1));
-        const refresh = () => complete.setAttribute('aria-pressed', set.done);
+        const refresh = () => {
+          complete.setAttribute('aria-pressed', set.done);
+          complete.setAttribute('aria-label', (set.done ? 'Undo ' : 'Complete ') + row.name + ', set ' + (offset + 1));
+          complete.textContent = set.done ? '✓ Completed' : 'Done';
+        };
         const edit = () => {
           if (!weight.validity.valid || !count.validity.valid) return false;
           set.weight = weight.value === '' ? null : weight.valueAsNumber;
@@ -262,6 +266,7 @@ function workout() {
           set.done = !set.done;
           save();
           refresh();
+          refreshCompletion();
           if (set.done) {
             restId = 'custom:' + row.name.toLowerCase();
             timer.querySelector('strong').textContent = row.name;
@@ -284,6 +289,7 @@ function workout() {
       item.append(remove);
       list.append(item);
     });
+    refreshCompletion();
   }
   showExtras();
   view.querySelector('#extra-form').onsubmit = event => {
@@ -344,6 +350,12 @@ function workout() {
     dialog.showModal();
   });
 
+  view.querySelector('#today').onclick = () => {
+    date = today;
+    render();
+    view.querySelector('#date').focus();
+  };
+
   view.querySelector('#date').addEventListener('change', event => {
     if (event.target.value && event.target.validity.valid && /^\d{4}-\d{2}-\d{2}$/.test(event.target.value)) date = event.target.value;
     render();
@@ -364,10 +376,19 @@ function workout() {
   });
 
   function refreshCompletion() {
-    view.querySelector('#set-total').textContent = sets.filter(set => set.done).length + ' of 12 sets complete';
-    view.querySelectorAll('[data-complete]').forEach(button => {
-      button.setAttribute('aria-pressed', sets[button.dataset.complete].done);
-    });
+    const buttons = [...view.querySelectorAll('.set button')];
+    for (const button of view.querySelectorAll('[data-complete]')) {
+      const index = Number(button.dataset.complete);
+      const done = sets[index].done;
+      const [, name] = exercises[Math.floor(index / 2)];
+      button.setAttribute('aria-pressed', done);
+      button.setAttribute('aria-label', (done ? 'Undo ' : 'Complete ') + name + ', set ' + (index % 2 + 1));
+      button.textContent = done ? '✓ Completed' : 'Done';
+    }
+    const next = buttons.find(button => button.getAttribute('aria-pressed') === 'false');
+    for (const button of buttons) button.closest('.set').classList.toggle('next-set', button === next);
+    const completed = buttons.filter(button => button.getAttribute('aria-pressed') === 'true').length;
+    view.querySelector('#set-total').textContent = completed + ' of ' + buttons.length + ' sets complete';
   }
 
   view.querySelectorAll('[data-complete]').forEach(button => button.onclick = () => {
@@ -434,7 +455,7 @@ function historyChart(logs) {
   const card = document.createElement('section');
   card.className = 'card';
   card.innerHTML = '<h3>Exercise progress</h3><label>Exercise<select id="chart-exercise"></select></label> <label>Measure<select id="chart-measure"></select></label><div id="chart"></div>';
-  view.querySelector('h2').after(card);
+  view.append(card);
   const byExercise = new Map();
   for (const log of [...logs].reverse()) {
     function add(id, name, sets) {
