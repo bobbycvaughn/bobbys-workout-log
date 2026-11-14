@@ -1,3 +1,4 @@
+/* Bobby’s Workout Log */
 :root{color-scheme:dark;--bg:#111514;--panel:#1c2320;--edge:#38453d;--muted:#b4c2ba;--lime:#ddfa77;font-family:system-ui,sans-serif;background:var(--bg);color:#f8faf7}
 *{box-sizing:border-box}
 body{max-width:680px;margin:auto;padding:24px 16px calc(24px + env(safe-area-inset-bottom))}
