@@ -93,8 +93,8 @@ main > h2, .stats, footer, dialog { text-align: center; }
   display: grid;
   align-items: center;
   min-height: 44px;
-  padding-inline: 58px;
-  text-align: center;
+  padding-inline-end: 68px;
+  text-align: left;
 }
 .exercise-title a {
   position: absolute;
