@@ -15,7 +15,7 @@ const program = {
     ['incline', 'Incline dumbbell press', 20, 10, null, 'each'],
     ['leg-curl', 'Leg curl machine', 40, 12],
     ['db-curl', 'Dumbbell biceps curl', 15, 12, null, 'each'],
-    ['crunch', 'Cable crunch', 30, 12],
+    ['cable-crunch', 'Cable crunch', 30, 12],
   ] },
   C: { day: 'Friday', exercises: [
     ['leg-press', 'Leg press', 90, 12],
@@ -27,7 +27,7 @@ const program = {
   ] },
 };
 
-const storageKey = 'crunch-workout-log-v1';
+const storageKey = 'bobbys-workout-log-v1';
 const view = document.querySelector('#view');
 const status = document.querySelector('#status');
 const now = new Date();
@@ -220,7 +220,7 @@ document.querySelector('#export').onclick = () => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `crunch-backup-${today}.json`;
+  link.download = `bobbys-workout-backup-${today}.json`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 };

@@ -1,4 +1,4 @@
-const cacheName = 'crunch-workout-log-v1';
+const cacheName = 'bobbys-workout-log-v1';
 const assets = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
@@ -6,7 +6,7 @@ self.addEventListener('install', event => {
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys
-    .filter(key => key.startsWith('crunch-workout-log-') && key !== cacheName)
+    .filter(key => key.startsWith('bobbys-workout-log-') && key !== cacheName)
     .map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', event => {

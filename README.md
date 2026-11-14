@@ -1,4 +1,4 @@
-# Crunch Workout Log
+# Bobby’s Workout Log
 
 Choose Workout A, B, or C and confirm the workout date. Edit the prefilled weight and reps for each set, or seconds for planks, then tap ✓. Changes save as you go. History shows dated sessions with at least one completed set. Progress shows session totals and each exercise’s best set and best set from the latest session.
 
