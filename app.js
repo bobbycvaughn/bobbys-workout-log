@@ -74,9 +74,11 @@ function validBackup(data) {
         !Number.isInteger(set.count) || set.count < 1 || set.count > 999))))) return false;
   return Object.entries(data.sessions).every(([key, sets]) => {
     const match = /^(\d{4}-\d{2}-\d{2})-([ABC])$/.exec(key);
-    return match && Number.isFinite(Date.parse(match[1])) && Array.isArray(sets) && sets.length === 12 &&
+    return match && Number.isFinite(Date.parse(match[1])) && Array.isArray(sets) && sets.length >= 12 &&
       sets.every((set, index) => {
-        const bodyweight = program[match[2]].exercises[Math.floor(index / 2)][2] === null;
+        const exercise = program[match[2]].exercises[exerciseIndexFor(set, index)];
+        if (!exercise) return false;
+        const bodyweight = exercise[2] === null;
         return set && typeof set.done === 'boolean' &&
           (bodyweight ? set.weight === null : set.weight === '' || Number.isFinite(set.weight) && set.weight >= 0) &&
           (set.count === '' || Number.isInteger(set.count) && set.count > 0) &&
@@ -164,12 +166,24 @@ document.querySelector('#rest-close').onclick = () => {
   document.body.classList.remove('rest-visible');
 };
 
+function exerciseIndexFor(set, index) {
+  return index < 12 ? Math.floor(index / 2) : set?.exerciseIndex;
+}
+
+function setIndices(sets, exerciseIndex) {
+  return sets.flatMap((set, index) => exerciseIndexFor(set, index) === exerciseIndex ? [index] : []);
+}
+
+function exerciseSets(sets, exerciseIndex) {
+  return setIndices(sets, exerciseIndex).map(index => sets[index]);
+}
+
 function lastTime(id) {
   for (const log of loggedSessions()) {
     if (log.date >= date) continue;
     const index = program[log.plan].exercises.findIndex(exercise => exercise[0] === id);
     if (index < 0) continue;
-    const results = log.sets.slice(index * 2, index * 2 + 2).flatMap((set, offset) => {
+    const results = exerciseSets(log.sets, index).flatMap((set, offset) => {
       if (!set.done) return [];
       const result = set.weight === null ? 'Hold ' + set.count + ' sec'
         : 'Weight ' + set.weight + ' lb' + (program[log.plan].exercises[index][5] === 'each' ? ' each' : '') + ' · Reps ' + set.count;
@@ -199,23 +213,36 @@ function workout() {
       · 2 × ${range || count}${weight === null ? ' sec' : ' reps'}</p>
       ${last.length ? `<p class="last-time"><strong>Last time</strong><br>${last.map(set => set.label).join('<br>')}</p>
         <button class="copy-last" data-copy="${exerciseIndex}" aria-label="Copy last session for ${name}">Copy last session</button>` : ''}
-      ${sets.slice(exerciseIndex * 2, exerciseIndex * 2 + 2).map((set, offset) => {
-        const index = exerciseIndex * 2 + offset;
+      ${setIndices(sets, exerciseIndex).map((index, offset) => {
+        const set = sets[index];
         const label = `${name}, set ${offset + 1}`;
         return `<div class="set"><b>Set ${offset + 1}</b>
           ${weight === null ? '<span></span>' : `<label>lb${qualifier === 'each' ? ' each' : ''}<input type="number" min="0" step="any" inputmode="decimal" data-index="${index}" data-field="weight" aria-label="${label}, pounds" value="${set.weight}"></label>`}
           <label>${weight === null ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${weight === null ? 'seconds' : 'reps'}" value="${set.count}"></label>
           <button data-complete="${index}" aria-pressed="${set.done}" aria-label="${set.done ? 'Undo' : 'Complete'} ${label}">${set.done ? '✓ Completed' : 'Done'}</button></div>`;
-      }).join('')}</section>`; }).join('')}`;
+      }).join('')}<button class="add-set" data-add-set="${exerciseIndex}" aria-label="Add set for ${name}">+ Add set</button></section>`; }).join('')}`;
+
+  view.querySelectorAll('[data-add-set]').forEach(button => button.onclick = () => {
+    const exerciseIndex = Number(button.dataset.addSet);
+    const [, , weight, count] = exercises[exerciseIndex];
+    const previous = exerciseSets(sets, exerciseIndex).at(-1);
+    sets.push({ exerciseIndex, weight: previous.weight === '' ? weight : previous.weight,
+      count: previous.count === '' ? count : previous.count, done: false });
+    sessions[key] = sets;
+    save();
+    render();
+    view.querySelector(`[data-index="${sets.length - 1}"]`).focus();
+  });
 
   view.querySelectorAll('[data-copy]').forEach(button => {
     const exerciseIndex = Number(button.dataset.copy);
     const [id] = exercises[exerciseIndex];
     const previous = lastTime(id);
-    const candidates = () => previous.filter(set => !sets[exerciseIndex * 2 + set.offset].done);
+    const indices = setIndices(sets, exerciseIndex);
+    const candidates = () => previous.filter(set => sets[indices[set.offset]]?.done === false);
     button.onclick = () => {
       for (const { offset, weight, count } of candidates()) {
-        const index = exerciseIndex * 2 + offset;
+        const index = indices[offset];
         Object.assign(sets[index], { weight, count });
         view.querySelectorAll(`[data-index="${index}"]`).forEach(input => {
           input.value = sets[index][input.dataset.field];
@@ -319,6 +346,21 @@ function workout() {
         refresh();
         item.append(line);
       });
+      const add = document.createElement('button');
+      add.className = 'add-set';
+      add.textContent = '+ Add set';
+      add.setAttribute('aria-label', 'Add set for ' + row.name);
+      add.disabled = row.sets >= 99;
+      add.onclick = () => {
+        const actual = actualSets(row);
+        const { weight, count } = actual.at(-1);
+        actual.push({ weight, count, done: false });
+        row.sets = actual.length;
+        save();
+        showExtras();
+        list.children[index].querySelector('.set:last-of-type input').focus();
+      };
+      item.append(add);
       const remove = document.createElement('button');
       remove.textContent = 'Remove';
       remove.setAttribute('aria-label', 'Remove ' + row.name);
@@ -423,14 +465,14 @@ function workout() {
     for (const button of view.querySelectorAll('[data-complete]')) {
       const index = Number(button.dataset.complete);
       const done = sets[index].done;
-      const [, name] = exercises[Math.floor(index / 2)];
+      const [, name] = exercises[exerciseIndexFor(sets[index], Number(index))];
       button.setAttribute('aria-pressed', done);
-      button.setAttribute('aria-label', (done ? 'Undo ' : 'Complete ') + name + ', set ' + (index % 2 + 1));
+      button.setAttribute('aria-label', (done ? 'Undo ' : 'Complete ') + name + ', set ' + (setIndices(sets, exerciseIndexFor(sets[index], index)).indexOf(index) + 1));
       button.textContent = done ? '✓ Completed' : 'Done';
     }
     view.querySelectorAll('[data-copy]').forEach(button => {
       const index = Number(button.dataset.copy);
-      button.disabled = !lastTime(exercises[index][0]).some(set => !sets[index * 2 + set.offset].done);
+      button.disabled = !lastTime(exercises[index][0]).some(set => exerciseSets(sets, index)[set.offset]?.done === false);
       button.textContent = 'Copy last session';
     });
     const next = buttons.find(button => button.getAttribute('aria-pressed') === 'false');
@@ -450,7 +492,7 @@ function workout() {
     }
     set.done = !set.done;
     if (set.done) {
-      const [id, name] = exercises[Math.floor(index / 2)];
+      const [id, name] = exercises[exerciseIndexFor(sets[index], Number(index))];
       restId = id;
       timer.querySelector('strong').textContent = name;
       const duration = ['leg-press', 'goblet'].includes(id) ? 120 :
@@ -491,7 +533,7 @@ function extraSetLabel(set) {
 function workoutResults(log) {
   return [
     ...program[log.plan].exercises.map(([id, name], index) => ({
-      id, name, sets: log.sets.slice(index * 2, index * 2 + 2),
+      id, name, sets: exerciseSets(log.sets, index),
     })),
     ...(extras[log.key] || []).map(row => ({
       id: 'custom:' + row.name.toLowerCase(), name: row.name, sets: actualSets(row),
@@ -511,7 +553,7 @@ function historyChart(logs) {
       byExercise.get(id).points.push({ date: log.date, plan: log.plan, sets });
     }
     program[log.plan].exercises.forEach(([id, name], index) => {
-      const sets = log.sets.slice(index * 2, index * 2 + 2).filter(set => set.done);
+      const sets = exerciseSets(log.sets, index).filter(set => set.done);
       if (sets.length) add(id, name, sets);
     });
     for (const row of extras[log.key] || []) {
@@ -569,9 +611,9 @@ function historyChart(logs) {
 function history() {
   const logs = loggedSessions();
   view.innerHTML = '<h2>Workout history</h2>' + (logs.length ? logs.map(log => `
-    <details><summary>${dateLabel(log.date)} · Workout ${log.plan} · ${log.sets.filter(set => set.done).length}/12 sets</summary>
+    <details><summary>${dateLabel(log.date)} · Workout ${log.plan} · ${workoutResults(log).flatMap(group => group.sets).filter(set => set.done).length}/${workoutResults(log).flatMap(group => group.sets).length} sets</summary>
     <ul>${program[log.plan].exercises.map(([, name, , , , qualifier], index) => {
-      const sets = log.sets.slice(index * 2, index * 2 + 2)
+      const sets = exerciseSets(log.sets, index)
         .flatMap((set, offset) => set.done ? [`Set ${offset + 1} · ${setLabel(set)}`] : []);
       return sets.length ? `<li><strong>${name}</strong>${qualifier === 'each' ? ' (lb each)' : ''}<br>${sets.join(' · ')}</li>` : '';
     }).join('')}</ul><ul data-extra-history="${log.key}"></ul><button data-edit="${log.key}">Edit workout</button> <button data-delete="${log.key}">Delete workout</button></details>`).join('')
@@ -615,12 +657,12 @@ function progress() {
   const logs = loggedSessions();
   const completed = logs.reduce((sum, log) => sum + log.sets.filter(set => set.done).length +
     (extras[log.key] || []).reduce((total, row) => total + actualSets(row).filter(set => set.done).length, 0), 0);
-  const full = logs.filter(log => log.sets.every(set => set.done)).length;
+  const full = logs.filter(log => workoutResults(log).every(group => group.sets.every(set => set.done))).length;
   const bests = new Map();
   const compare = (a, b) => (a.weight ?? 0) - (b.weight ?? 0) || a.count - b.count;
   for (const log of logs) {
     program[log.plan].exercises.forEach(([id, name, , , , qualifier], index) => {
-      const sets = log.sets.slice(index * 2, index * 2 + 2).filter(set => set.done);
+      const sets = exerciseSets(log.sets, index).filter(set => set.done);
       if (!sets.length) return;
       const bestSet = sets.reduce((a, b) => compare(a, b) >= 0 ? a : b);
       if (!bests.has(id)) bests.set(id, { name, qualifier, latest: bestSet, date: log.date, best: bestSet });

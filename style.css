@@ -160,3 +160,4 @@ main > h2, .stats, footer, dialog { text-align: center; }
 
 .copy-last { display: block; margin: 8px auto; color: #a8e8fb; }
 .copy-last:disabled { opacity: .55; cursor: default; }
+.add-set { margin: 10px 8px 0 0; color: #a8e8fb; }
