@@ -72,3 +72,40 @@ dialog::backdrop { background: #050a13c7; }
 dialog button { margin-top: 16px; min-width: 88px; }
 
 #form-video { display: inline-flex; align-items: center; min-height: 44px; color: #a8e8fb; font-weight: 700; }
+
+:root {
+  --bg: #13243a;
+  --edge: #557391;
+  --muted: #cfdeef;
+  background: radial-gradient(ellipse 620px 460px at top, #294965, transparent), var(--bg);
+}
+.session, .card, .stat, details, dialog {
+  background: linear-gradient(145deg, #2a4664, #1c304b);
+}
+nav { background: #192e48; }
+nav button { background: #263e5a; }
+button { text-align: center; }
+.session { display: grid; justify-content: center; text-align: center; }
+.session input { text-align: center; margin-inline: auto; }
+main > h2, .stats, footer, dialog { text-align: center; }
+.exercise-title { display: grid; justify-items: center; text-align: center; gap: 0; }
+.card > p { text-align: center; }
+.set label, .set input { text-align: center; }
+.last-time { color: #a8e8fb; }
+.rest-visible { padding-bottom: calc(155px + env(safe-area-inset-bottom)); }
+#rest {
+  position: fixed;
+  z-index: 2;
+  inset: auto 12px calc(10px + env(safe-area-inset-bottom));
+  max-width: 648px;
+  margin: auto;
+  padding: 12px;
+  background: #243d58;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px #090f1a;
+}
+.rest-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+#rest output { color: #a8e8fb; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rest-controls { display: grid; grid-template-columns: repeat(3, 1fr) 1.35fr; gap: 5px; }
+.rest-controls button { padding-inline: 4px; }

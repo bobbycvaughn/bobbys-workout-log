@@ -101,6 +101,51 @@ function defaults(exercises) {
   ]);
 }
 
+const timer = document.querySelector('#rest');
+let restInterval;
+let restId;
+const restOverrides = new Map();
+
+function startRest(duration) {
+  clearInterval(restInterval);
+  timer.hidden = false;
+  document.body.classList.add('rest-visible');
+  const end = Date.now() + duration * 1000;
+  const update = () => {
+    const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+    timer.querySelector('output').textContent = left
+      ? Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0')
+      : 'Rest complete';
+    if (!left) clearInterval(restInterval);
+  };
+  timer.querySelectorAll('[data-rest]').forEach(button => button.setAttribute('aria-pressed', Number(button.dataset.rest) === duration));
+  restInterval = setInterval(update, 250);
+  update();
+}
+
+timer.querySelectorAll('[data-rest]').forEach(button => button.onclick = () => {
+  const duration = Number(button.dataset.rest);
+  restOverrides.set(restId, duration);
+  startRest(duration);
+});
+
+document.querySelector('#rest-close').onclick = () => {
+  clearInterval(restInterval);
+  timer.hidden = true;
+  document.body.classList.remove('rest-visible');
+};
+
+function lastTime(id) {
+  for (const log of loggedSessions()) {
+    if (log.date >= date) continue;
+    const index = program[log.plan].exercises.findIndex(exercise => exercise[0] === id);
+    if (index < 0) continue;
+    const results = log.sets.slice(index * 2, index * 2 + 2).filter(set => set.done);
+    if (results.length) return results.map(setLabel).join(' / ');
+  }
+  return '';
+}
+
 function workout() {
   const { day, exercises } = program[plan];
   const key = date + '-' + plan;
@@ -111,10 +156,13 @@ function workout() {
     <div class="session"><div><h2>${day} · Workout ${plan}</h2>
     <p id="set-total">${sets.filter(set => set.done).length} of 12 sets complete</p></div>
     <label>Workout date<input type="date" id="date" value="${date}"></label></div>
-    ${exercises.map(([id, name, weight, count, range, qualifier], exerciseIndex) => `
+    ${exercises.map(([id, name, weight, count, range, qualifier], exerciseIndex) => {
+      const last = lastTime(id);
+      return `
       <section class="card"><div class="exercise-title"><h3>${name}</h3><a href="#form-${id}" data-guide="${id}" aria-label="How to do ${name}">How to <span aria-hidden="true">↗</span></a></div>
       <p>${weight === null ? 'Bodyweight' : weight + ' lb' + (qualifier ? ' ' + qualifier : '')}
       · 2 × ${range || count}${weight === null ? ' sec' : ' reps'}</p>
+      ${last ? `<p class="last-time"><strong>Last time</strong> · ${last}</p>` : ''}
       ${sets.slice(exerciseIndex * 2, exerciseIndex * 2 + 2).map((set, offset) => {
         const index = exerciseIndex * 2 + offset;
         const label = `${name}, set ${offset + 1}`;
@@ -122,7 +170,7 @@ function workout() {
           ${weight === null ? '<span></span>' : `<label>lb${qualifier === 'each' ? ' each' : ''}<input type="number" min="0" step="any" inputmode="decimal" data-index="${index}" data-field="weight" aria-label="${label}, pounds" value="${set.weight}"></label>`}
           <label>${weight === null ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${weight === null ? 'seconds' : 'reps'}" value="${set.count}"></label>
           <button data-complete="${index}" aria-pressed="${set.done}" aria-label="Complete ${label}">✓</button></div>`;
-      }).join('')}</section>`).join('')}`;
+      }).join('')}</section>`; }).join('')}`;
 
   view.querySelectorAll('[data-guide]').forEach(link => link.onclick = event => {
     event.preventDefault();
@@ -172,6 +220,14 @@ function workout() {
       return;
     }
     set.done = !set.done;
+    if (set.done) {
+      const [id, name] = exercises[Math.floor(index / 2)];
+      restId = id;
+      timer.querySelector('strong').textContent = name;
+      const duration = ['leg-press', 'goblet'].includes(id) ? 120 :
+        ['chest-press', 'lat-pulldown', 'shoulder-press', 'row', 'incline'].includes(id) ? 90 : 60;
+      startRest(restOverrides.get(id) ?? duration);
+    }
     sessions[key] = sets;
     save();
     refreshCompletion();
