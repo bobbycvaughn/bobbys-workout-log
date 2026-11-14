@@ -54,10 +54,17 @@ let date = today;
 let plan = { 1: 'A', 3: 'B', 5: 'C' }[now.getDay()] || 'A';
 let tab = 'workout';
 let sessions = {};
+let extras = {};
 
 function validBackup(data) {
   if (data?.version !== 1 || !data.sessions || Array.isArray(data.sessions) ||
       typeof data.sessions !== 'object') return false;
+  if (data.extras !== undefined && (!data.extras || typeof data.extras !== 'object' ||
+      Array.isArray(data.extras) || !Object.entries(data.extras).every(([key, rows]) =>
+        /^\d{4}-\d{2}-\d{2}-[ABC]$/.test(key) && Array.isArray(rows) && rows.every(row =>
+          row && typeof row.name === 'string' && row.name.trim().length > 0 && row.name.length <= 80 &&
+          Number.isInteger(row.sets) && row.sets > 0 && row.sets <= 99 &&
+          Number.isInteger(row.reps) && row.reps > 0 && row.reps <= 999)))) return false;
   return Object.entries(data.sessions).every(([key, sets]) => {
     const match = /^(\d{4}-\d{2}-\d{2})-([ABC])$/.exec(key);
     return match && Number.isFinite(Date.parse(match[1])) && Array.isArray(sets) && sets.length === 12 &&
@@ -77,6 +84,7 @@ try {
     const data = JSON.parse(saved);
     if (!validBackup(data)) throw new Error('Invalid saved data');
     sessions = data.sessions;
+    extras = data.extras || {};
   }
 } catch {
   status.textContent = 'Saved data could not be read. This session may only be available until you close the app.';
@@ -84,7 +92,7 @@ try {
 
 function save(message = '') {
   try {
-    localStorage.setItem(storageKey, JSON.stringify({ version: 1, sessions }));
+    localStorage.setItem(storageKey, JSON.stringify({ version: 1, sessions, extras }));
     status.textContent = message;
   } catch {
     status.textContent = 'Your browser could not save these changes. Export a backup before closing this page.';
@@ -116,7 +124,10 @@ function startRest(duration) {
     timer.querySelector('output').textContent = left
       ? Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0')
       : 'Rest complete';
-    if (!left) clearInterval(restInterval);
+    if (!left) {
+      clearInterval(restInterval);
+      navigator.vibrate?.([200, 100, 200]);
+    }
   };
   timer.querySelectorAll('[data-rest]').forEach(button => button.setAttribute('aria-pressed', Number(button.dataset.rest) === duration));
   restInterval = setInterval(update, 250);
@@ -140,10 +151,15 @@ function lastTime(id) {
     if (log.date >= date) continue;
     const index = program[log.plan].exercises.findIndex(exercise => exercise[0] === id);
     if (index < 0) continue;
-    const results = log.sets.slice(index * 2, index * 2 + 2).filter(set => set.done);
-    if (results.length) return results.map(setLabel).join(' / ');
+    const results = log.sets.slice(index * 2, index * 2 + 2).flatMap((set, offset) => {
+      if (!set.done) return [];
+      const result = set.weight === null ? 'Hold ' + set.count + ' sec'
+        : 'Weight ' + set.weight + ' lb' + (program[log.plan].exercises[index][5] === 'each' ? ' each' : '') + ' · Reps ' + set.count;
+      return ['Set ' + (offset + 1) + ' · ' + result];
+    });
+    if (results.length) return results;
   }
-  return '';
+  return [];
 }
 
 function workout() {
@@ -162,7 +178,7 @@ function workout() {
       <section class="card"><div class="exercise-title"><h3>${name}</h3><a href="#form-${id}" data-guide="${id}" aria-label="How to do ${name}">How to <span aria-hidden="true">↗</span></a></div>
       <p>${weight === null ? 'Bodyweight' : weight + ' lb' + (qualifier ? ' ' + qualifier : '')}
       · 2 × ${range || count}${weight === null ? ' sec' : ' reps'}</p>
-      ${last ? `<p class="last-time"><strong>Last time</strong> · ${last}</p>` : ''}
+      ${last.length ? `<p class="last-time"><strong>Last time</strong><br>${last.join('<br>')}</p>` : ''}
       ${sets.slice(exerciseIndex * 2, exerciseIndex * 2 + 2).map((set, offset) => {
         const index = exerciseIndex * 2 + offset;
         const label = `${name}, set ${offset + 1}`;
@@ -171,6 +187,46 @@ function workout() {
           <label>${weight === null ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${weight === null ? 'seconds' : 'reps'}" value="${set.count}"></label>
           <button data-complete="${index}" aria-pressed="${set.done}" aria-label="Complete ${label}">✓</button></div>`;
       }).join('')}</section>`; }).join('')}`;
+
+  view.insertAdjacentHTML('beforeend', `<section class="card"><h3>Custom exercises</h3>
+    <ul id="extra-list"></ul>
+    <form id="extra-form"><label>Exercise<input name="exercise" maxlength="80" required></label>
+      <label>Sets<input name="sets" type="number" inputmode="numeric" min="1" max="99" value="2" required></label>
+      <label>Reps per set<input name="reps" type="number" inputmode="numeric" min="1" max="999" value="10" required></label>
+      <button>Add exercise</button>
+    </form></section>`);
+  const list = view.querySelector('#extra-list');
+  function showExtras() {
+    list.replaceChildren();
+    (extras[key] || []).forEach((row, index) => {
+      const item = document.createElement('li');
+      item.textContent = extraLabel(row) + ' ';
+      const remove = document.createElement('button');
+      remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', 'Remove ' + row.name);
+      remove.onclick = () => {
+        extras[key].splice(index, 1);
+        if (!extras[key].length) delete extras[key];
+        save();
+        showExtras();
+        view.querySelector('#extra-form input').focus();
+      };
+      item.append(remove);
+      list.append(item);
+    });
+  }
+  showExtras();
+  view.querySelector('#extra-form').onsubmit = event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const name = fields.get('exercise').trim();
+    if (!name) return;
+    (extras[key] ||= []).push({ name, sets: Number(fields.get('sets')), reps: Number(fields.get('reps')) });
+    save();
+    form.reset();
+    showExtras();
+  };
 
   view.querySelectorAll('[data-guide]').forEach(link => link.onclick = event => {
     event.preventDefault();
@@ -235,13 +291,85 @@ function workout() {
 }
 
 function loggedSessions() {
-  return Object.entries(sessions).sort(([a], [b]) => b.localeCompare(a))
-    .filter(([, sets]) => sets.some(set => set.done))
-    .map(([key, sets]) => ({ key, date: key.slice(0, -2), plan: key.at(-1), sets }));
+  return [...new Set([...Object.keys(sessions), ...Object.keys(extras)])].sort().reverse()
+    .map(key => {
+      const plan = key.at(-1);
+      return { key, date: key.slice(0, -2), plan, sets: sessions[key] || defaults(program[plan].exercises) };
+    }).filter(log => log.sets.some(set => set.done) || extras[log.key]?.length);
 }
 
 function setLabel(set) {
   return set.weight === null ? `${set.count} sec` : `${set.weight} lb × ${set.count}`;
+}
+
+function extraLabel(row) {
+  return row.name + ' · ' + row.sets + ' sets × ' + row.reps + ' reps';
+}
+
+function historyChart(logs) {
+  const card = document.createElement('section');
+  card.className = 'card';
+  card.innerHTML = '<h3>Exercise progress</h3><label>Exercise<select id="chart-exercise"></select></label> <label>Measure<select id="chart-measure"></select></label><div id="chart"></div>';
+  view.querySelector('h2').after(card);
+  const byExercise = new Map();
+  for (const log of [...logs].reverse()) {
+    function add(id, name, sets) {
+      if (!byExercise.has(id)) byExercise.set(id, { name, points: [] });
+      byExercise.get(id).points.push({ date: log.date, plan: log.plan, sets });
+    }
+    program[log.plan].exercises.forEach(([id, name], index) => {
+      const sets = log.sets.slice(index * 2, index * 2 + 2).filter(set => set.done);
+      if (sets.length) add(id, name, sets);
+    });
+    for (const row of extras[log.key] || []) {
+      add('custom:' + row.name.toLowerCase(), row.name + ' (custom)',
+        [{ count: row.reps, weight: undefined }]);
+    }
+  }
+  const exercise = card.querySelector('#chart-exercise');
+  const measure = card.querySelector('#chart-measure');
+  const chart = card.querySelector('#chart');
+  if (!byExercise.size) {
+    card.querySelectorAll('label').forEach(label => label.remove());
+    chart.textContent = 'Log an exercise to see your progress here.';
+    return;
+  }
+  for (const [id, item] of byExercise) exercise.add(new Option(item.name, id));
+  function renderChart() {
+    const points = byExercise.get(exercise.value).points.slice(-12);
+    const field = measure.value;
+    const unit = measure.selectedOptions[0].textContent;
+    const values = points.map(point => Math.max(...point.sets.map(set => set[field])));
+    const max = Math.max(1, ...values);
+    chart.replaceChildren();
+    points.forEach((point, index) => {
+      const row = document.createElement('div');
+      row.className = 'chart-row';
+      const label = document.createElement('span');
+      label.textContent = dateLabel(point.date) + ' · ' + point.plan;
+      const bar = document.createElement('meter');
+      bar.min = 0;
+      bar.max = max;
+      bar.value = values[index];
+      bar.setAttribute('aria-label', label.textContent + ', ' + unit);
+      const value = document.createElement('strong');
+      value.textContent = values[index];
+      row.append(label, bar, value);
+      chart.append(row);
+    });
+  }
+  function chooseExercise() {
+    const weight = byExercise.get(exercise.value).points[0].sets[0].weight;
+    const count = weight === null ? 'Seconds' : 'Reps';
+    measure.replaceChildren();
+    if (typeof weight === 'number') measure.add(new Option(
+      ['incline', 'db-curl', 'lateral'].includes(exercise.value) ? 'Weight (lb each)' : 'Weight (lb)', 'weight'));
+    measure.add(new Option(count, 'count'));
+    renderChart();
+  }
+  exercise.onchange = chooseExercise;
+  measure.onchange = renderChart;
+  chooseExercise();
 }
 
 function history() {
@@ -252,8 +380,16 @@ function history() {
       const sets = log.sets.slice(index * 2, index * 2 + 2)
         .flatMap((set, offset) => set.done ? [`Set ${offset + 1} · ${setLabel(set)}`] : []);
       return sets.length ? `<li><strong>${name}</strong>${qualifier === 'each' ? ' (lb each)' : ''}<br>${sets.join(' · ')}</li>` : '';
-    }).join('')}</ul><button data-edit="${log.key}">Edit workout</button></details>`).join('')
+    }).join('')}</ul><ul data-extra-history="${log.key}"></ul><button data-edit="${log.key}">Edit workout</button></details>`).join('')
     : '<p>Mark a set complete to start your history.</p>');
+  view.querySelectorAll('[data-extra-history]').forEach(list => {
+    for (const row of extras[list.dataset.extraHistory] || []) {
+      const item = document.createElement('li');
+      item.textContent = extraLabel(row);
+      list.append(item);
+    }
+  });
+  historyChart(logs);
   view.querySelectorAll('[data-edit]').forEach(button => button.onclick = () => {
     date = button.dataset.edit.slice(0, -2);
     plan = button.dataset.edit.at(-1);
@@ -265,7 +401,8 @@ function history() {
 
 function progress() {
   const logs = loggedSessions();
-  const completed = logs.flatMap(log => log.sets.filter(set => set.done)).length;
+  const completed = logs.reduce((sum, log) => sum + log.sets.filter(set => set.done).length +
+    (extras[log.key] || []).reduce((total, row) => total + row.sets, 0), 0);
   const full = logs.filter(log => log.sets.every(set => set.done)).length;
   const bests = new Map();
   const compare = (a, b) => (a.weight ?? 0) - (b.weight ?? 0) || a.count - b.count;
@@ -301,7 +438,7 @@ document.querySelector('nav').onclick = event => {
 };
 
 document.querySelector('#export').onclick = () => {
-  const blob = new Blob([JSON.stringify({ version: 1, sessions }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ version: 1, sessions, extras }, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -321,6 +458,7 @@ backup.onchange = async () => {
     if (!validBackup(data)) throw new Error('Invalid backup');
     if (!confirm('Restore this backup? It will replace all workout data currently in this browser.')) return;
     sessions = data.sessions;
+    extras = data.extras || {};
     save('Backup restored.');
     render();
   } catch {

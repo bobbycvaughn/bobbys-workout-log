@@ -122,3 +122,13 @@ main > h2, .stats, footer, dialog { text-align: center; }
 #rest output { color: #a8e8fb; font-weight: 800; font-variant-numeric: tabular-nums; }
 .rest-controls { display: grid; grid-template-columns: repeat(3, 1fr) 1.35fr; gap: 5px; }
 .rest-controls button { padding-inline: 4px; }
+
+#extra-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+#extra-form label:first-child, #extra-form button { grid-column: 1 / -1; }
+#extra-list:empty { display: none; }
+#extra-list li { margin-block: 8px; }
+#chart-exercise, #chart-measure { font: inherit; color: inherit; background: #13243a; border: 1px solid var(--edge); min-height: 44px; max-width: 100%; margin: 6px 0; }
+#chart { margin-top: 12px; }
+.chart-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 4ch; align-items: center; gap: 8px; margin-block: 8px; font-size: .85rem; }
+.chart-row meter { width: 100%; height: 18px; }
+.chart-row meter::-webkit-meter-optimum-value { background: #89e3f8; }
