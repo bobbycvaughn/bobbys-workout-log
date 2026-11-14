@@ -163,13 +163,14 @@ function lastTime(id) {
 }
 
 function workout() {
-  const { day, exercises } = program[plan];
+  const { exercises } = program[plan];
+  const weekday = new Date(date + 'T12:00:00').toLocaleDateString('en', { weekday: 'long' });
   const key = date + '-' + plan;
   const sets = sessions[key] || defaults(exercises);
   view.innerHTML = `
     <div class="days" aria-label="Program day">${Object.entries(program).map(([letter, item]) =>
       `<button data-plan="${letter}" aria-pressed="${letter === plan}">${item.day.slice(0, 3)} · ${letter}</button>`).join('')}</div>
-    <div class="session"><div><h2>${day} · Workout ${plan}</h2>
+    <div class="session"><div><h2>${weekday} Workout ${plan}</h2>
     <p id="set-total">${sets.filter(set => set.done).length} of 12 sets complete</p></div>
     <label>Workout date<input type="date" id="date" value="${date}"></label></div>
     ${exercises.map(([id, name, weight, count, range, qualifier], exerciseIndex) => {
