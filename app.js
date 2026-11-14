@@ -27,6 +27,23 @@ const program = {
   ] },
 };
 
+const form = {
+  'leg-press': 'Plant your feet shoulder-width on the platform. Lower until your knees bend comfortably while your hips stay against the pad. Press through your whole foot and stop short of locking your knees.',
+  'chest-press': 'Adjust the seat so the handles line up with mid-chest. Keep your back against the pad and wrists straight. Press forward, then bring the handles back slowly.',
+  'lat-pulldown': 'Secure your thighs under the pad. With a slight lean back, pull your elbows down until the bar approaches your upper chest. Let the bar rise slowly without swinging.',
+  'shoulder-press': 'Set the seat so the handles start near shoulder height. Keep your back against the pad and press overhead. Lower slowly to your starting position.',
+  pushdown: 'Stand tall with elbows tucked at your sides. Straighten your arms to press the handle down, then bend your elbows slowly while keeping your upper arms still.',
+  plank: 'Place your elbows under your shoulders. Brace your abdomen and keep a straight line from head to heels. Breathe steadily without letting your hips sag.',
+  goblet: 'Hold one dumbbell close to your chest. Sit down between your hips with your feet flat and knees tracking over your toes. Stand by pressing through your whole foot.',
+  row: 'Sit tall with knees slightly bent. Pull the handle toward your lower ribs, keeping your elbows close. Extend your arms slowly without rocking your torso.',
+  incline: 'Rest against an inclined bench with a dumbbell in each hand. Lower the weights beside your upper chest with wrists above elbows. Press up smoothly and lower under control.',
+  'leg-curl': 'Align your knees with the machine pivot and place the roller above your heels. Bend your knees to pull the roller, keeping your hips against the pad. Return slowly.',
+  'db-curl': 'Stand with a dumbbell in each hand and elbows near your sides. Curl with palms facing up, then lower slowly. Keep your torso steady.',
+  'cable-crunch': 'Kneel facing a high pulley with the rope beside your head. Keep your hips steady as you curl your ribs toward your pelvis. Return slowly without pulling on the rope with your arms.',
+  lateral: 'Start with dumbbells at your sides and a slight bend in your elbows. Raise your arms out to about shoulder height, then lower slowly without swinging.',
+  'cable-curl': 'Face a low pulley with an underhand grip. Keep your elbows close to your body as you curl the handle up. Lower slowly without leaning back.',
+};
+
 const storageKey = 'bobbys-workout-log-v1';
 const view = document.querySelector('#view');
 const status = document.querySelector('#status');
@@ -94,8 +111,8 @@ function workout() {
     <div class="session"><div><h2>${day} · Workout ${plan}</h2>
     <p id="set-total">${sets.filter(set => set.done).length} of 12 sets complete</p></div>
     <label>Workout date<input type="date" id="date" value="${date}"></label></div>
-    ${exercises.map(([, name, weight, count, range, qualifier], exerciseIndex) => `
-      <section class="card"><h3>${name}</h3>
+    ${exercises.map(([id, name, weight, count, range, qualifier], exerciseIndex) => `
+      <section class="card"><div class="exercise-title"><h3>${name}</h3><a href="#form-${id}" data-guide="${id}" aria-label="How to do ${name}">How to <span aria-hidden="true">↗</span></a></div>
       <p>${weight === null ? 'Bodyweight' : weight + ' lb' + (qualifier ? ' ' + qualifier : '')}
       · 2 × ${range || count}${weight === null ? ' sec' : ' reps'}</p>
       ${sets.slice(exerciseIndex * 2, exerciseIndex * 2 + 2).map((set, offset) => {
@@ -106,6 +123,15 @@ function workout() {
           <label>${weight === null ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${weight === null ? 'seconds' : 'reps'}" value="${set.count}"></label>
           <button data-complete="${index}" aria-pressed="${set.done}" aria-label="Complete ${label}">✓</button></div>`;
       }).join('')}</section>`).join('')}`;
+
+  view.querySelectorAll('[data-guide]').forEach(link => link.onclick = event => {
+    event.preventDefault();
+    const id = link.dataset.guide;
+    const dialog = document.querySelector('#form-guide');
+    dialog.querySelector('h2').textContent = exercises.find(exercise => exercise[0] === id)[1];
+    dialog.querySelector('p').textContent = form[id];
+    dialog.showModal();
+  });
 
   view.querySelector('#date').addEventListener('change', event => {
     if (event.target.value && event.target.validity.valid && /^\d{4}-\d{2}-\d{2}$/.test(event.target.value)) date = event.target.value;
