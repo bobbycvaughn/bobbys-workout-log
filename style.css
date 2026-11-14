@@ -88,7 +88,20 @@ button { text-align: center; }
 .session { display: grid; justify-content: center; text-align: center; }
 .session input { text-align: center; margin-inline: auto; }
 main > h2, .stats, footer, dialog { text-align: center; }
-.exercise-title { display: grid; justify-items: center; text-align: center; gap: 0; }
+.exercise-title {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 58px;
+  text-align: center;
+}
+.exercise-title a {
+  position: absolute;
+  top: 0;
+  right: 0;
+  white-space: nowrap;
+}
 .card > p { text-align: center; }
 .set label, .set input { text-align: center; }
 .last-time { color: #a8e8fb; }
