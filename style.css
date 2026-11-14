@@ -157,3 +157,6 @@ main > h2, .stats, footer, dialog { text-align: center; }
   .date-controls input { display: block; max-width: 100%; }
   .date-controls button { min-width: 100px; }
 }
+
+.copy-last { display: block; margin: 8px auto; color: #a8e8fb; }
+.copy-last:disabled { opacity: .55; cursor: default; }

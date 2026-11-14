@@ -173,7 +173,7 @@ function lastTime(id) {
       if (!set.done) return [];
       const result = set.weight === null ? 'Hold ' + set.count + ' sec'
         : 'Weight ' + set.weight + ' lb' + (program[log.plan].exercises[index][5] === 'each' ? ' each' : '') + ' · Reps ' + set.count;
-      return ['Set ' + (offset + 1) + ' · ' + result];
+      return [{ ...set, offset, label: 'Set ' + (offset + 1) + ' · ' + result }];
     });
     if (results.length) return results;
   }
@@ -197,7 +197,8 @@ function workout() {
       <section class="card"><div class="exercise-title"><h3>${name}</h3><a href="#form-${id}" data-guide="${id}" aria-label="How to do ${name}">How to <span aria-hidden="true">↗</span></a></div>
       <p><strong>Target</strong> · ${weight === null ? 'Bodyweight' : weight + ' lb' + (qualifier ? ' ' + qualifier : '')}
       · 2 × ${range || count}${weight === null ? ' sec' : ' reps'}</p>
-      ${last.length ? `<p class="last-time"><strong>Last time</strong><br>${last.join('<br>')}</p>` : ''}
+      ${last.length ? `<p class="last-time"><strong>Last time</strong><br>${last.map(set => set.label).join('<br>')}</p>
+        <button class="copy-last" data-copy="${exerciseIndex}" aria-label="Copy last session for ${name}">Copy last session</button>` : ''}
       ${sets.slice(exerciseIndex * 2, exerciseIndex * 2 + 2).map((set, offset) => {
         const index = exerciseIndex * 2 + offset;
         const label = `${name}, set ${offset + 1}`;
@@ -206,6 +207,26 @@ function workout() {
           <label>${weight === null ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${weight === null ? 'seconds' : 'reps'}" value="${set.count}"></label>
           <button data-complete="${index}" aria-pressed="${set.done}" aria-label="${set.done ? 'Undo' : 'Complete'} ${label}">${set.done ? '✓ Completed' : 'Done'}</button></div>`;
       }).join('')}</section>`; }).join('')}`;
+
+  view.querySelectorAll('[data-copy]').forEach(button => {
+    const exerciseIndex = Number(button.dataset.copy);
+    const [id] = exercises[exerciseIndex];
+    const previous = lastTime(id);
+    const candidates = () => previous.filter(set => !sets[exerciseIndex * 2 + set.offset].done);
+    button.onclick = () => {
+      for (const { offset, weight, count } of candidates()) {
+        const index = exerciseIndex * 2 + offset;
+        Object.assign(sets[index], { weight, count });
+        view.querySelectorAll(`[data-index="${index}"]`).forEach(input => {
+          input.value = sets[index][input.dataset.field];
+        });
+      }
+      sessions[key] = sets;
+      save('Copied your previous sets.');
+      button.textContent = 'Copied';
+    };
+    button.disabled = !candidates().length;
+  });
 
   view.insertAdjacentHTML('beforeend', `<section class="card"><h3>Custom exercises</h3>
     <div id="extra-list"></div>
@@ -233,6 +254,28 @@ function workout() {
           .flatMap(extra => actualSets(extra).flatMap((set, i) => set.done
             ? ['Set ' + (i + 1) + ' · ' + extraSetLabel(set)] : [])).join(' / ');
         item.append(previous);
+        const source = (extras[earlier.key] || []).find(extra =>
+          sameExercise(extra.name, row.name) && actualSets(extra).some(set => set.done));
+        const copy = document.createElement('button');
+        copy.className = 'copy-last';
+        copy.textContent = 'Copy last session';
+        copy.setAttribute('aria-label', 'Copy last session for ' + row.name);
+        const candidates = () => actualSets(row).flatMap((set, i) =>
+          !set.done && actualSets(source)[i]?.done ? [i] : []);
+        copy.disabled = !candidates().length;
+        copy.onclick = () => {
+          for (const i of candidates()) {
+            const { weight, count } = actualSets(source)[i];
+            Object.assign(actualSets(row)[i], { weight, count });
+            const [weightInput, countInput] = item.querySelectorAll('.set')[i].querySelectorAll('input');
+            weightInput.value = weight ?? '';
+            countInput.value = count;
+          }
+          save('Copied your previous sets.');
+          copy.textContent = 'Copied';
+        };
+        item.append(copy);
+
       }
       actualSets(row).forEach((set, offset) => {
         const line = document.createElement('div');
@@ -385,6 +428,11 @@ function workout() {
       button.setAttribute('aria-label', (done ? 'Undo ' : 'Complete ') + name + ', set ' + (index % 2 + 1));
       button.textContent = done ? '✓ Completed' : 'Done';
     }
+    view.querySelectorAll('[data-copy]').forEach(button => {
+      const index = Number(button.dataset.copy);
+      button.disabled = !lastTime(exercises[index][0]).some(set => !sets[index * 2 + set.offset].done);
+      button.textContent = 'Copy last session';
+    });
     const next = buttons.find(button => button.getAttribute('aria-pressed') === 'false');
     for (const button of buttons) button.closest('.set').classList.toggle('next-set', button === next);
     const completed = buttons.filter(button => button.getAttribute('aria-pressed') === 'true').length;
