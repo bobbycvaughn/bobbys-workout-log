@@ -551,73 +551,6 @@ function workoutResults(log) {
   ];
 }
 
-function historyChart(logs) {
-  const card = document.createElement('section');
-  card.className = 'card';
-  card.innerHTML = '<h3>Exercise progress</h3><label>Exercise<select id="chart-exercise"></select></label> <label>Measure<select id="chart-measure"></select></label><div id="chart"></div>';
-  view.append(card);
-  const byExercise = new Map();
-  for (const log of [...logs].reverse()) {
-    function add(id, name, sets) {
-      if (!byExercise.has(id)) byExercise.set(id, { name, points: [] });
-      byExercise.get(id).points.push({ date: log.date, plan: log.plan, sets });
-    }
-    program[log.plan].exercises.forEach(([id, name], index) => {
-      const sets = exerciseSets(log.sets, index).filter(set => set.done);
-      if (sets.length) add(id, name, sets);
-    });
-    for (const row of extras[log.key] || []) {
-      const sets = actualSets(row).filter(set => set.done);
-      if (sets.length) add('custom:' + row.name.toLowerCase(), row.name + ' (custom)', sets);
-    }
-  }
-  const exercise = card.querySelector('#chart-exercise');
-  const measure = card.querySelector('#chart-measure');
-  const chart = card.querySelector('#chart');
-  if (!byExercise.size) {
-    card.querySelectorAll('label').forEach(label => label.remove());
-    chart.textContent = 'Log an exercise to see your progress here.';
-    return;
-  }
-  for (const [id, item] of byExercise) exercise.add(new Option(item.name, id));
-  function renderChart() {
-    const field = measure.value;
-    const points = byExercise.get(exercise.value).points
-      .filter(point => point.sets.some(set => typeof set[field] === 'number')).slice(-12);
-    const unit = measure.selectedOptions[0].textContent;
-    const values = points.map(point => Math.max(...point.sets.map(set => set[field])));
-    const max = Math.max(1, ...values);
-    chart.replaceChildren();
-    points.forEach((point, index) => {
-      const row = document.createElement('div');
-      row.className = 'chart-row';
-      const label = document.createElement('span');
-      label.textContent = dateLabel(point.date) + ' · ' + point.plan;
-      const bar = document.createElement('meter');
-      bar.min = 0;
-      bar.max = max;
-      bar.value = values[index];
-      bar.setAttribute('aria-label', label.textContent + ', ' + unit);
-      const value = document.createElement('strong');
-      value.textContent = values[index];
-      row.append(label, bar, value);
-      chart.append(row);
-    });
-  }
-  function chooseExercise() {
-    const weight = byExercise.get(exercise.value).points[0].sets[0].weight;
-    const count = weight === null && !exercise.value.startsWith('custom:') ? 'Seconds' : 'Reps';
-    measure.replaceChildren();
-    if (byExercise.get(exercise.value).points.some(point => point.sets.some(set => typeof set.weight === 'number'))) measure.add(new Option(
-      ['incline', 'db-curl', 'lateral'].includes(exercise.value) ? 'Weight (lb each)' : 'Weight (lb)', 'weight'));
-    measure.add(new Option(count, 'count'));
-    renderChart();
-  }
-  exercise.onchange = chooseExercise;
-  measure.onchange = renderChart;
-  chooseExercise();
-}
-
 function history() {
   const all = loggedSessions();
   const logs = backlog ? all : all.slice(0, 3);
@@ -691,7 +624,6 @@ function progress() {
     ${[...bests.values()].map(row => `<section class="card"><h3>${row.name}${row.qualifier === 'each' ? ' · lb each' : ''}</h3>
     <p>Best · ${setLabel(row.best)}</p><p>Latest · ${setLabel(row.latest)} · ${dateLabel(row.date)}</p></section>`).join('') ||
     '<p>Complete sets to see your latest and best results.</p>'}`;
-  historyChart(logs);
 }
 
 const sectionNames = { workout: 'Workout', run: 'Run', sauna: 'Sauna', weight: 'Weight' };
