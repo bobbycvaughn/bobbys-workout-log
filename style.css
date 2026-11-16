@@ -257,7 +257,8 @@ dialog::backdrop { background: #070303d9; }
   top: calc(24px + env(safe-area-inset-top));
   padding-top: 24px;
 }
-.rest-heading { gap: 8px; }
+.rest-heading { gap: 0; }
+#rest output:not(.rest-complete) { margin-top: clamp(28px, 9vw, 46px); }
 .rest-heading strong {
   color: #fff2ee;
   line-height: 1.3;
