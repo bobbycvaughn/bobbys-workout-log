@@ -252,3 +252,14 @@ dialog::backdrop { background: #070303d9; }
 .chart-row meter::-webkit-meter-optimum-value { background: #ff8177; }
 #extra-form[hidden] { display: none; }
 .set [data-plank] { color: #ff9a8d; }
+
+#rest {
+  top: calc(24px + env(safe-area-inset-top));
+  padding-top: 24px;
+}
+.rest-heading { gap: 8px; }
+.rest-heading strong {
+  color: #fff2ee;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
