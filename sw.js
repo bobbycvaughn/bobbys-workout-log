@@ -1,5 +1,5 @@
-const cacheName = 'bobbys-workout-log-v28';
-const assets = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './daemon-sickness.otf', './fire.jpg', './smoke.jpg'];
+const cacheName = 'bobbys-workout-log-v29';
+const assets = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './daemon-sickness.otf', './fire.jpg', './smoke.jpg', './timer-thorns.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(cacheName).then(cache => cache.addAll(assets.map(path => new Request(new URL(path, self.registration.scope), { cache: 'reload' }))).then(() => self.skipWaiting())));
