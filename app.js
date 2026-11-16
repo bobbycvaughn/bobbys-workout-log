@@ -47,15 +47,19 @@ const form = {
 const storageKey = 'bobbys-workout-log-v1';
 const view = document.querySelector('#view');
 const status = document.querySelector('#status');
+function localDate(value) {
+  return [value.getFullYear(), value.getMonth() + 1, value.getDate()]
+    .map((part, index) => index === 0 ? part : String(part).padStart(2, '0')).join('-');
+}
 const now = new Date();
-const today = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
-  .map((part, index) => index === 0 ? part : String(part).padStart(2, '0')).join('-');
+let today = localDate(now);
 let date = today;
 let plan = { 1: 'A', 3: 'B', 5: 'C' }[now.getDay()] || 'A';
 let tab = 'workout';
 let sessions = {};
 let extras = {};
 let notes = {};
+let activities = [];
 
 function validBackup(data) {
   if (data?.version !== 1 || !data.sessions || Array.isArray(data.sessions) ||
@@ -72,6 +76,11 @@ function validBackup(data) {
       (!Array.isArray(row.actual) || row.actual.length !== row.sets || row.actual.some(set =>
         !set || typeof set.done !== 'boolean' || !(set.weight === null || Number.isFinite(set.weight) && set.weight >= 0) ||
         !Number.isInteger(set.count) || set.count < 1 || set.count > 999))))) return false;
+  if (data.activities !== undefined && (!Array.isArray(data.activities) || !data.activities.every(entry =>
+    entry && typeof entry.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.date) &&
+    Number.isFinite(Date.parse(entry.date)) && ['run', 'lifting', 'weight', 'sauna'].includes(entry.type) &&
+    Number.isFinite(entry.amount) && entry.amount > 0 &&
+    (entry.type !== 'run' || Number.isFinite(entry.miles) && entry.miles > 0)))) return false;
   return Object.entries(data.sessions).every(([key, sets]) => {
     const match = /^(\d{4}-\d{2}-\d{2})-([ABC])$/.exec(key);
     return match && Number.isFinite(Date.parse(match[1])) && Array.isArray(sets) && sets.length >= 12 &&
@@ -88,16 +97,6 @@ function validBackup(data) {
 }
 
 try {
-  const selection = JSON.parse(localStorage.getItem(storageKey + '-selection'));
-  if (selection && /^\d{4}-\d{2}-\d{2}$/.test(selection.date) &&
-      Number.isFinite(Date.parse(selection.date)) && ['A', 'B', 'C'].includes(selection.plan)) {
-    date = selection.date;
-    plan = selection.plan;
-  }
-} catch {
-  // The current date and default workout are usable if preferences are unavailable.
-}
-try {
   const saved = localStorage.getItem(storageKey);
   if (saved) {
     const data = JSON.parse(saved);
@@ -105,6 +104,7 @@ try {
     sessions = data.sessions;
     extras = data.extras || {};
     notes = data.notes || {};
+    activities = data.activities || [];
   }
 } catch {
   status.textContent = 'Saved data could not be read. This session may only be available until you close the app.';
@@ -112,7 +112,7 @@ try {
 
 function save(message = '') {
   try {
-    localStorage.setItem(storageKey, JSON.stringify({ version: 1, sessions, extras, notes }));
+    localStorage.setItem(storageKey, JSON.stringify({ version: 1, sessions, extras, notes, activities }));
     status.textContent = message;
   } catch {
     status.textContent = 'Your browser could not save these changes. Export a backup before closing this page.';
@@ -198,7 +198,13 @@ function workout() {
   const { exercises } = program[plan];
   const weekday = new Date(date + 'T12:00:00').toLocaleDateString('en', { weekday: 'long' });
   const key = date + '-' + plan;
-  const sets = sessions[key] || defaults(exercises);
+  const targets = exercises.map(([id, , weight]) => {
+    const previous = lastTime(id).filter(set => set.weight > 0);
+    return previous.length ? Math.min(...previous.map(set => set.weight)) : weight;
+  });
+  const sets = sessions[key] || defaults(exercises).map((set, index) => ({
+    ...set, weight: targets[Math.floor(index / 2)],
+  }));
   view.innerHTML = `
     <div class="days" aria-label="Program day">${Object.entries(program).map(([letter, item]) =>
       `<button data-plan="${letter}" aria-pressed="${letter === plan}">${item.day.slice(0, 3)} · ${letter}</button>`).join('')}</div>
@@ -206,6 +212,7 @@ function workout() {
     <p id="set-total">${sets.filter(set => set.done).length} of 12 sets complete</p></div>
     <div class="date-controls"><label>Workout date<input type="date" id="date" value="${date}"></label><button id="today" ${date === today ? 'disabled' : ''}>Today</button></div></div>
     ${exercises.map(([id, name, weight, count, range, qualifier], exerciseIndex) => {
+      weight = targets[exerciseIndex];
       const last = lastTime(id);
       return `
       <section class="card"><div class="exercise-title"><h3>${name}</h3><a href="#form-${id}" data-guide="${id}" aria-label="How to do ${name}">How to <span aria-hidden="true">↗</span></a></div>
@@ -633,7 +640,7 @@ function history() {
     note.textContent = 'Workout note · ' + notes[log.key];
     view.querySelector('[data-extra-history="' + log.key + '"]').after(note);
   }
-  historyChart(logs);
+
   view.querySelectorAll('[data-delete]').forEach(button => button.onclick = () => {
     const key = button.dataset.delete;
     const description = dateLabel(key.slice(0, -2)) + ' · Workout ' + key.at(-1);
@@ -678,16 +685,144 @@ function progress() {
     ${[...bests.values()].map(row => `<section class="card"><h3>${row.name}${row.qualifier === 'each' ? ' · lb each' : ''}</h3>
     <p>Best · ${setLabel(row.best)}</p><p>Latest · ${setLabel(row.latest)} · ${dateLabel(row.date)}</p></section>`).join('') ||
     '<p>Complete sets to see your latest and best results.</p>'}`;
+  historyChart(logs);
+  view.append(weightChart());
 }
 
-function render() {
-  try {
-    localStorage.setItem(storageKey + '-selection', JSON.stringify({ date, plan }));
-  } catch {
-    // Selection is still available while the current page is open.
+const activityNames = { run: 'Run', lifting: 'Weight training', weight: 'Body weight', sauna: 'Sauna' };
+
+function estimate(entry) {
+  const weighIn = activities.filter(item => item.type === 'weight' && item.date <= entry.date)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!weighIn) return null;
+  const kg = weighIn.amount * 0.45359237;
+  if (entry.type === 'run') return 1.7 * kg * entry.miles;
+  if (entry.type === 'lifting') return 3.5 * 3.5 * kg * entry.amount / 200;
+  return null;
+}
+
+function activity() {
+  view.innerHTML = `<h2>Activity</h2><section class="card">
+    <form id="activity-form">
+      <label>Activity<select name="type">
+        <option value="run">Run</option><option value="lifting">Weight training</option>
+        <option value="weight">Body weight</option><option value="sauna">Sauna</option>
+      </select></label>
+      <label>Date<input name="date" type="date" value="${today}" required></label>
+      <label id="miles-label">Distance (mi)<input name="miles" type="number" inputmode="decimal" min="0.01" step="any" required></label>
+      <label><span id="amount-label">Time (min)</span><input name="amount" type="number" inputmode="decimal" min="0.01" step="any" required></label>
+      <button>Save entry</button>
+    </form>
+    <p>Log body weight each Monday to build your trend. Calorie estimates use the latest weigh-in on or before the activity date. Enter lifting time to include weight training.</p>
+    </section><section class="card"><h3>This week</h3><p id="week-activity"></p></section>
+    <section class="card"><h3>Activity log</h3><ul id="activity-log"></ul></section>`;
+  const form = view.querySelector('#activity-form');
+  const type = form.elements.type;
+  const adjust = () => {
+    const run = type.value === 'run';
+    form.elements.miles.disabled = !run;
+    view.querySelector('#miles-label').hidden = !run;
+    view.querySelector('#amount-label').textContent = type.value === 'weight' ? 'Weight (lb)' : 'Time (min)';
+  };
+  type.onchange = adjust;
+  adjust();
+  form.onsubmit = event => {
+    event.preventDefault();
+    const day = form.elements.date.value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+    if (type.value === 'weight') activities = activities.filter(item => item.type !== 'weight' || item.date !== day);
+    const entry = { type: type.value, date: day, amount: form.elements.amount.valueAsNumber };
+    if (entry.type === 'run') entry.miles = form.elements.miles.valueAsNumber;
+    activities.push(entry);
+    save('Activity saved.');
+    form.elements.amount.value = '';
+    form.elements.miles.value = '';
+    showActivity();
+  };
+  function showActivity() {
+    const monday = new Date(today + 'T12:00:00');
+    monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+    const week = activities.filter(item => item.date >= localDate(monday) && item.date <= today);
+    const estimates = week.map(estimate).filter(value => value !== null);
+    const miles = week.reduce((sum, item) => sum + (item.miles || 0), 0);
+    const sauna = week.filter(item => item.type === 'sauna').reduce((sum, item) => sum + item.amount, 0);
+    const lifting = week.filter(item => item.type === 'lifting').reduce((sum, item) => sum + item.amount, 0);
+    view.querySelector('#week-activity').textContent =
+      Number(miles.toFixed(2)) + ' mi running · ' + lifting + ' min lifting · ' + sauna + ' min sauna. ' +
+      (estimates.length ? 'Estimated calories (run + lifting): ' + Math.round(estimates.reduce((a, b) => a + b, 0)) + ' kcal.' : 'No calorie estimates yet.');
+    const list = view.querySelector('#activity-log');
+    list.replaceChildren();
+    for (const entry of [...activities].sort((a, b) => b.date.localeCompare(a.date))) {
+      const row = document.createElement('li');
+      const calories = estimate(entry);
+      row.textContent = dateLabel(entry.date) + ' · ' + activityNames[entry.type] + ' · ' +
+        (entry.type === 'run' ? entry.miles + ' mi · ' : '') + entry.amount + (entry.type === 'weight' ? ' lb' : ' min') +
+        (calories === null ? '' : ' · ~' + Math.round(calories) + ' kcal');
+      const remove = document.createElement('button');
+      remove.textContent = 'Delete';
+      remove.onclick = () => {
+        if (!confirm('Delete this ' + activityNames[entry.type].toLowerCase() + ' entry?')) return;
+        activities = activities.filter(item => item !== entry);
+        save('Entry deleted.');
+        showActivity();
+      };
+      row.append(' ', remove);
+      list.append(row);
+    }
   }
+  showActivity();
+}
+
+function weightChart() {
+  const card = document.createElement('section');
+  card.className = 'card';
+  card.innerHTML = '<h3>Body weight</h3>';
+  const points = activities.filter(item => item.type === 'weight').sort((a, b) => a.date.localeCompare(b.date)).slice(-12);
+  if (!points.length) {
+    card.insertAdjacentHTML('beforeend', '<p>Add a weigh-in under Activity to start your chart.</p>');
+    return card;
+  }
+  const weights = points.map(item => item.amount);
+  const low = Math.min(...weights);
+  const span = Math.max(1, Math.max(...weights) - low);
+  const start = Date.parse(points[0].date);
+  const timeSpan = Math.max(1, Date.parse(points.at(-1).date) - start);
+  const coords = points.map(item => [
+    points.length === 1 ? 150 : 10 + 280 * (Date.parse(item.date) - start) / timeSpan,
+    85 - 70 * (item.amount - low) / span,
+  ]);
+  card.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 300 100" role="img" aria-label="Body weight trend in pounds">
+    <polyline fill="none" stroke="#89e3f8" stroke-width="2" points="${coords.map(point => point.join(',')).join(' ')}"></polyline>
+    ${coords.map(([x,y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#89e3f8"></circle>`).join('')}
+    </svg>`);
+  const list = document.createElement('ul');
+  for (const point of points) {
+    const row = document.createElement('li');
+    row.textContent = dateLabel(point.date) + ' · ' + point.amount + ' lb';
+    list.append(row);
+  }
+  card.append(list);
+  return card;
+}
+
+view.addEventListener('focusin', event => {
+  const input = event.target;
+  if (!input.matches('input[type="number"]') || input.value === '') return;
+  const previous = input.value;
+  input.value = '';
+  let edited = false;
+  const markEdited = () => { edited = true; };
+  input.addEventListener('input', markEdited);
+  const restore = () => {
+    input.removeEventListener('input', markEdited);
+    if (!edited && input.value === '') input.value = previous;
+  };
+  input.addEventListener('blur', restore, { once: true });
+});
+
+function render() {
   document.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', button.dataset.tab === tab));
-  ({ workout, history, progress })[tab]();
+  ({ workout, history, progress, activity })[tab]();
 }
 
 document.querySelector('nav').onclick = event => {
@@ -697,7 +832,7 @@ document.querySelector('nav').onclick = event => {
 };
 
 document.querySelector('#export').onclick = () => {
-  const blob = new Blob([JSON.stringify({ version: 1, sessions, extras, notes }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ version: 1, sessions, extras, notes, activities }, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -719,12 +854,23 @@ backup.onchange = async () => {
     sessions = data.sessions;
     extras = data.extras || {};
     notes = data.notes || {};
+    activities = data.activities || [];
     save('Backup restored.');
     render();
   } catch {
     status.textContent = 'Could not read this workout backup.';
   }
 };
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  const current = localDate(new Date());
+  if (current === today) return;
+  today = current;
+  date = today;
+  plan = { 1: 'A', 3: 'B', 5: 'C' }[new Date().getDay()] || 'A';
+  render();
+});
 
 render();
 if ('serviceWorker' in navigator && window.isSecureContext) {

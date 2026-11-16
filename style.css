@@ -161,3 +161,11 @@ main > h2, .stats, footer, dialog { text-align: center; }
 .copy-last { display: block; margin: 8px auto; color: #a8e8fb; }
 .copy-last:disabled { opacity: .55; cursor: default; }
 .add-set { margin: 10px 8px 0 0; color: #a8e8fb; }
+
+nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+nav button { padding-inline: 3px; }
+#activity-form { display: grid; gap: 10px; }
+#activity-form label { display: grid; gap: 4px; }
+#activity-form [hidden] { display: none; }
+#activity-form select { font: inherit; color: inherit; background: #13243a; border: 1px solid var(--edge); border-radius: 10px; min-height: 44px; padding: 6px; }
+#activity-log li { margin-block: 10px; }
