@@ -137,10 +137,10 @@ let restInterval;
 let restId;
 const restOverrides = new Map();
 
-function startRest(duration) {
+function startRest(duration, control) {
   clearInterval(restInterval);
   timer.hidden = false;
-  const panel = document.activeElement?.closest('.card');
+  const panel = control?.closest('.card');
   if (panel) requestAnimationFrame(() => {
     const top = timer.getBoundingClientRect().bottom + 12;
     const offset = panel.getBoundingClientRect().top - top;
@@ -403,7 +403,7 @@ function workout() {
           if (set.done) {
             restId = 'custom:' + row.name.toLowerCase();
             timer.querySelector('strong').textContent = row.name;
-            startRest(restOverrides.get(restId) ?? 60);
+            startRest(restOverrides.get(restId) ?? 60, complete);
           }
         };
         refresh();
@@ -564,7 +564,7 @@ function workout() {
       timer.querySelector('strong').textContent = name;
       const duration = ['leg-press', 'goblet'].includes(id) ? 120 :
         ['chest-press', 'lat-pulldown', 'shoulder-press', 'row', 'incline'].includes(id) ? 90 : 60;
-      startRest(restOverrides.get(id) ?? duration);
+      startRest(restOverrides.get(id) ?? duration, button);
     }
     sessions[key] = sets;
     save();
