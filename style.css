@@ -172,3 +172,9 @@ nav button { padding-inline: 3px; }
 
 #section-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: -8px; }
 .backlog-button { margin: 8px 0; }
+
+#section-nav[hidden] { display: none; }
+.activity-date { width: min(100%, 170px); justify-self: center; text-align: center; }
+.activity-date input { display: block; text-align: center; max-width: 100%; }
+.run-time { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
+.run-time legend { padding: 0; font-weight: 700; margin-bottom: 4px; }

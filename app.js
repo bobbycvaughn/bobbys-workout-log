@@ -706,7 +706,11 @@ function runMetrics(entry) {
 }
 
 function entryText(entry) {
-  if (entry.type === 'run') return entry.miles + ' mi · ' + entry.amount + ' min · ' + runMetrics(entry);
+  if (entry.type === 'run') {
+    const seconds = Math.round(entry.amount * 60);
+    const time = Math.floor(seconds / 60) + ' min ' + seconds % 60 + ' sec';
+    return entry.miles + ' mi · ' + time + ' · ' + runMetrics(entry);
+  }
   if (entry.type === 'weight') return entry.amount + ' lb';
   return entry.amount + ' min' + (entry.temperature === undefined ? '' : ' · ' + entry.temperature + ' °F');
 }
@@ -719,8 +723,11 @@ function activityEntry() {
   const type = tab;
   view.innerHTML = `<h2>Log ${type === 'weight' ? 'body weight' : 'a ' + (type === 'sauna' ? 'sauna visit' : 'run')}</h2>
     <section class="card"><form id="activity-form">
-      <label>Date<input name="date" type="date" value="${today}" required></label>
-      <label>${type === 'weight' ? 'Weight (lb)' : 'Time (min)'}<input name="amount" type="number" inputmode="decimal" min="0.01" step="any" required></label>
+      <label class="activity-date">Date<input name="date" type="date" value="${today}" required></label>
+      ${type === 'run' ? `<fieldset class="run-time"><legend>Time</legend>
+        <label>Minutes<input name="minutes" type="number" inputmode="numeric" min="0" step="1" required></label>
+        <label>Seconds<input name="seconds" type="number" inputmode="numeric" min="0" max="59" step="1" placeholder="0"></label>
+      </fieldset>` : `<label>${type === 'weight' ? 'Weight (lb)' : 'Time (min)'}<input name="amount" type="number" inputmode="decimal" min="0.01" step="any" required></label>`}
       ${type === 'run' ? '<label>Distance (mi)<input name="miles" type="number" inputmode="decimal" min="0.01" step="any" required></label>' : ''}
       ${type === 'sauna' ? '<label>Temperature (°F)<input name="temperature" type="number" inputmode="decimal" min="1" step="any" required></label>' : ''}
       <button>Save ${type === 'sauna' ? 'visit' : type}</button>
@@ -729,26 +736,42 @@ function activityEntry() {
   const result = view.querySelector('#entry-result');
   const draft = () => {
     const fields = form.elements;
-    const entry = { type, date: fields.date.value, amount: fields.amount.valueAsNumber };
+    const entry = { type, date: fields.date.value, amount: type === 'run' ? fields.minutes.valueAsNumber + (fields.seconds.valueAsNumber || 0) / 60 : fields.amount.valueAsNumber };
     if (type === 'run') entry.miles = fields.miles.valueAsNumber;
     if (type === 'sauna') entry.temperature = fields.temperature.valueAsNumber;
     return entry;
   };
   if (type === 'run') form.oninput = () => {
-    result.textContent = form.checkValidity() ? runMetrics(draft()) : '';
+    const entry = draft();
+    result.textContent = form.checkValidity() && entry.amount > 0 ? runMetrics(entry) : '';
   };
   form.onsubmit = event => {
     event.preventDefault();
     const entry = draft();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date)) return;
+    if (entry.amount <= 0) {
+      result.textContent = 'Enter a run time greater than zero.';
+      return;
+    }
     if (type === 'weight') activities = activities.filter(item => item.type !== type || item.date !== entry.date);
     activities.push(entry);
     save('Entry saved.');
     result.textContent = 'Saved · ' + entryText(entry);
     for (const input of form.querySelectorAll('input[type="number"]')) input.value = '';
-    if (type !== 'run') activityProgress(false);
+    if (type !== 'run') {
+      activityProgress(false);
+      const details = view.querySelector('#inline-activity-history');
+      activityHistory(details);
+    }
   };
-  if (type !== 'run') activityProgress(false);
+  if (type !== 'run') {
+    activityProgress(false);
+    const details = document.createElement('details');
+    details.id = 'inline-activity-history';
+    details.innerHTML = '<summary>Saved entries</summary>';
+    view.append(details);
+    activityHistory(details);
+  }
 }
 
 function backlogButton(count) {
@@ -764,14 +787,14 @@ function backlogButton(count) {
   view.append(button);
 }
 
-function activityHistory() {
+function activityHistory(container = view) {
   const entries = activityEntries();
-  view.innerHTML = '<h2>' + sectionNames[tab] + ' history</h2>';
+  container.innerHTML = container === view ? '<h2>' + sectionNames[tab] + ' history</h2>' : '<summary>Saved entries</summary>';
   if (!entries.length) {
-    view.insertAdjacentHTML('beforeend', '<p>No entries yet.</p>');
+    container.insertAdjacentHTML('beforeend', '<p>No entries yet.</p>');
     return;
   }
-  for (const entry of entries.slice(0, backlog ? entries.length : 3)) {
+  for (const entry of entries.slice(0, backlog || container !== view ? entries.length : 3)) {
     const card = document.createElement('section');
     card.className = 'card';
     const title = document.createElement('h3');
@@ -787,9 +810,9 @@ function activityHistory() {
       render();
     };
     card.append(title, detail, remove);
-    view.append(card);
+    container.append(card);
   }
-  backlogButton(entries.length);
+  if (container === view) backlogButton(entries.length);
 }
 
 function activityProgress(showTitle = true) {
@@ -840,7 +863,9 @@ function activityProgress(showTitle = true) {
   } else {
     card.insertAdjacentHTML('beforeend', '<p>No entries for this period yet.</p>');
   }
-  view.append(card);
+  const history = view.querySelector('#inline-activity-history');
+  if (history) history.before(card);
+  else view.append(card);
 }
 
 view.addEventListener('focusin', event => {
@@ -860,6 +885,7 @@ view.addEventListener('focusin', event => {
 
 function render() {
   document.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', button.dataset.tab === tab));
+  document.querySelector('#section-nav').hidden = tab === 'sauna' || tab === 'weight';
   document.querySelector('#section-nav').setAttribute('aria-label', sectionNames[tab] + ' views');
   document.querySelectorAll('[data-section]').forEach(button => button.setAttribute('aria-pressed', button.dataset.section === section));
   const views = tab === 'workout'
