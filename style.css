@@ -178,3 +178,69 @@ nav button { padding-inline: 3px; }
 .activity-date input { display: block; text-align: center; max-width: 100%; }
 .run-time { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
 .run-time legend { padding: 0; font-weight: 700; margin-bottom: 4px; }
+
+@font-face {
+  font-family: "Daemon Sickness";
+  src: url("./daemon-sickness.otf") format("opentype");
+  font-display: swap;
+}
+
+:root {
+  --bg: #090707;
+  --edge: #75413e;
+  --muted: #e0c4c0;
+  --lime: #ff8177;
+  --cut: polygon(0 8px, 8px 0, 34% 0, 36% 4px, 40% 0, calc(100% - 13px) 0, 100% 13px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 67% 100%, 65% calc(100% - 4px), 61% 100%, 10px 100%, 0 calc(100% - 10px));
+  color: #fff2ee;
+  background: linear-gradient(180deg, #09070755, #090707 760px), url("./smoke.jpg") center top / auto 780px no-repeat, #090707;
+}
+header {
+  padding: 30px 12px 32px;
+  background: linear-gradient(180deg, #08060635 5%, #19030499 100%), url("./fire.jpg") center bottom / cover;
+  clip-path: var(--cut);
+}
+h1, h2 {
+  font-family: "Daemon Sickness", Impact, fantasy;
+  font-weight: 400;
+  letter-spacing: .025em;
+  line-height: 1.15;
+}
+h1 {
+  max-width: 12ch;
+  margin-inline: auto;
+  font-size: clamp(2.7rem, 11vw, 5.35rem);
+  color: #fff0eb;
+  text-shadow: 0 3px #640d0b, 0 0 22px #950000;
+}
+h2 { font-size: clamp(1.85rem, 6.5vw, 2.6rem); }
+header p { color: #fff1eb; text-shadow: 0 1px 5px #000; }
+nav, .session, .card, .stat, details, #rest {
+  border-radius: 0;
+  background: linear-gradient(142deg, #390e10, #170c0c 48%, #100909);
+  clip-path: var(--cut);
+}
+nav { border-color: var(--edge); background: #130a0a; }
+button, nav button {
+  border-radius: 0;
+  background: linear-gradient(155deg, #3a1717, #1d1010);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+button[aria-pressed=true], .primary {
+  background: linear-gradient(145deg, #a02120, #700e14);
+  color: #fff4f0;
+  border-color: #ee695d;
+}
+button:focus-visible { outline-offset: -4px; }
+input, #workout-note, #activity-form select, #chart-exercise, #chart-measure {
+  color: #fff2ee;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  background: #130b0b;
+}
+.set { border-color: #542826; }
+.set.next-set { border-radius: 0; background: #401316; outline-color: #ff8177; }
+.set.next-set button { border-color: #ff8177; }
+.exercise-title a, #form-video, .last-time, #rest output, .set.next-set b, .copy-last, .add-set { color: #ff9a8d; }
+dialog { border-radius: 0; background: linear-gradient(142deg, #3a1011, #140909 60%); }
+dialog::backdrop { background: #070303d9; }
+.chart-row meter::-webkit-meter-optimum-value { background: #ff8177; }

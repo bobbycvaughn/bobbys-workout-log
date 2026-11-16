@@ -857,8 +857,8 @@ function activityProgress(showTitle = true) {
       10 + 280 * (Date.parse(day) - start) / duration, 85 - 70 * (value - min) / span,
     ]);
     card.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 300 100" role="img" aria-label="${heading}">
-      <polyline fill="none" stroke="#89e3f8" stroke-width="2" points="${coords.map(point => point.join(',')).join(' ')}"></polyline>
-      ${coords.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#89e3f8"></circle>`).join('')}
+      <polyline fill="none" stroke="#ff8177" stroke-width="2" points="${coords.map(point => point.join(',')).join(' ')}"></polyline>
+      ${coords.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#ff8177"></circle>`).join('')}
       </svg><ul>${[...daily].map(([day, value]) => `<li>${dateLabel(day)} · ${value} ${tab === 'weight' ? 'lb' : 'min'}</li>`).join('')}</ul>`);
   } else {
     card.insertAdjacentHTML('beforeend', '<p>No entries for this period yet.</p>');
