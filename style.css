@@ -169,3 +169,6 @@ nav button { padding-inline: 3px; }
 #activity-form [hidden] { display: none; }
 #activity-form select { font: inherit; color: inherit; background: #13243a; border: 1px solid var(--edge); border-radius: 10px; min-height: 44px; padding: 6px; }
 #activity-log li { margin-block: 10px; }
+
+#section-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: -8px; }
+.backlog-button { margin: 8px 0; }

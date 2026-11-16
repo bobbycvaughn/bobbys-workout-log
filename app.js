@@ -56,6 +56,8 @@ let today = localDate(now);
 let date = today;
 let plan = { 1: 'A', 3: 'B', 5: 'C' }[now.getDay()] || 'A';
 let tab = 'workout';
+let section = 'entry';
+let backlog = false;
 let sessions = {};
 let extras = {};
 let notes = {};
@@ -80,7 +82,8 @@ function validBackup(data) {
     entry && typeof entry.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.date) &&
     Number.isFinite(Date.parse(entry.date)) && ['run', 'lifting', 'weight', 'sauna'].includes(entry.type) &&
     Number.isFinite(entry.amount) && entry.amount > 0 &&
-    (entry.type !== 'run' || Number.isFinite(entry.miles) && entry.miles > 0)))) return false;
+    (entry.type !== 'run' || Number.isFinite(entry.miles) && entry.miles > 0) &&
+    (entry.temperature === undefined || entry.type === 'sauna' && Number.isFinite(entry.temperature) && entry.temperature >= 1)))) return false;
   return Object.entries(data.sessions).every(([key, sets]) => {
     const match = /^(\d{4}-\d{2}-\d{2})-([ABC])$/.exec(key);
     return match && Number.isFinite(Date.parse(match[1])) && Array.isArray(sets) && sets.length >= 12 &&
@@ -616,7 +619,8 @@ function historyChart(logs) {
 }
 
 function history() {
-  const logs = loggedSessions();
+  const all = loggedSessions();
+  const logs = backlog ? all : all.slice(0, 3);
   view.innerHTML = '<h2>Workout history</h2>' + (logs.length ? logs.map(log => `
     <details><summary>${dateLabel(log.date)} · Workout ${log.plan} · ${workoutResults(log).flatMap(group => group.sets).filter(set => set.done).length}/${workoutResults(log).flatMap(group => group.sets).length} sets</summary>
     <ul>${program[log.plan].exercises.map(([, name, , , , qualifier], index) => {
@@ -655,9 +659,11 @@ function history() {
     date = button.dataset.edit.slice(0, -2);
     plan = button.dataset.edit.at(-1);
     tab = 'workout';
+    section = 'entry';
     render();
     view.querySelector('#date').focus();
   });
+  backlogButton(all.length);
 }
 
 function progress() {
@@ -686,123 +692,155 @@ function progress() {
     <p>Best · ${setLabel(row.best)}</p><p>Latest · ${setLabel(row.latest)} · ${dateLabel(row.date)}</p></section>`).join('') ||
     '<p>Complete sets to see your latest and best results.</p>'}`;
   historyChart(logs);
-  view.append(weightChart());
 }
 
-const activityNames = { run: 'Run', lifting: 'Weight training', weight: 'Body weight', sauna: 'Sauna' };
+const sectionNames = { workout: 'Workout', run: 'Run', sauna: 'Sauna', weight: 'Weight' };
 
-function estimate(entry) {
-  const weighIn = activities.filter(item => item.type === 'weight' && item.date <= entry.date)
+function runMetrics(entry) {
+  const weight = activities.filter(item => item.type === 'weight' && item.date <= entry.date)
     .sort((a, b) => b.date.localeCompare(a.date))[0];
-  if (!weighIn) return null;
-  const kg = weighIn.amount * 0.45359237;
-  if (entry.type === 'run') return 1.7 * kg * entry.miles;
-  if (entry.type === 'lifting') return 3.5 * 3.5 * kg * entry.amount / 200;
-  return null;
+  const seconds = Math.round(entry.amount * 60 / entry.miles);
+  const pace = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  const calories = weight ? Math.round(1.7 * weight.amount * 0.45359237 * entry.miles) : null;
+  return pace + ' /mi · ' + (calories === null ? 'Add a weigh-in for estimated calories' : '~' + calories + ' kcal');
 }
 
-function activity() {
-  view.innerHTML = `<h2>Activity</h2><section class="card">
-    <form id="activity-form">
-      <label>Activity<select name="type">
-        <option value="run">Run</option><option value="lifting">Weight training</option>
-        <option value="weight">Body weight</option><option value="sauna">Sauna</option>
-      </select></label>
+function entryText(entry) {
+  if (entry.type === 'run') return entry.miles + ' mi · ' + entry.amount + ' min · ' + runMetrics(entry);
+  if (entry.type === 'weight') return entry.amount + ' lb';
+  return entry.amount + ' min' + (entry.temperature === undefined ? '' : ' · ' + entry.temperature + ' °F');
+}
+
+function activityEntries() {
+  return activities.filter(entry => entry.type === tab).reverse().sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function activityEntry() {
+  const type = tab;
+  view.innerHTML = `<h2>Log ${type === 'weight' ? 'body weight' : 'a ' + (type === 'sauna' ? 'sauna visit' : 'run')}</h2>
+    <section class="card"><form id="activity-form">
       <label>Date<input name="date" type="date" value="${today}" required></label>
-      <label id="miles-label">Distance (mi)<input name="miles" type="number" inputmode="decimal" min="0.01" step="any" required></label>
-      <label><span id="amount-label">Time (min)</span><input name="amount" type="number" inputmode="decimal" min="0.01" step="any" required></label>
-      <button>Save entry</button>
-    </form>
-    <p>Log body weight each Monday to build your trend. Calorie estimates use the latest weigh-in on or before the activity date. Enter lifting time to include weight training.</p>
-    </section><section class="card"><h3>This week</h3><p id="week-activity"></p></section>
-    <section class="card"><h3>Activity log</h3><ul id="activity-log"></ul></section>`;
-  const form = view.querySelector('#activity-form');
-  const type = form.elements.type;
-  const adjust = () => {
-    const run = type.value === 'run';
-    form.elements.miles.disabled = !run;
-    view.querySelector('#miles-label').hidden = !run;
-    view.querySelector('#amount-label').textContent = type.value === 'weight' ? 'Weight (lb)' : 'Time (min)';
+      <label>${type === 'weight' ? 'Weight (lb)' : 'Time (min)'}<input name="amount" type="number" inputmode="decimal" min="0.01" step="any" required></label>
+      ${type === 'run' ? '<label>Distance (mi)<input name="miles" type="number" inputmode="decimal" min="0.01" step="any" required></label>' : ''}
+      ${type === 'sauna' ? '<label>Temperature (°F)<input name="temperature" type="number" inputmode="decimal" min="1" step="any" required></label>' : ''}
+      <button>Save ${type === 'sauna' ? 'visit' : type}</button>
+    </form><p id="entry-result" role="status"></p></section>`;
+  const form = view.querySelector('form');
+  const result = view.querySelector('#entry-result');
+  const draft = () => {
+    const fields = form.elements;
+    const entry = { type, date: fields.date.value, amount: fields.amount.valueAsNumber };
+    if (type === 'run') entry.miles = fields.miles.valueAsNumber;
+    if (type === 'sauna') entry.temperature = fields.temperature.valueAsNumber;
+    return entry;
   };
-  type.onchange = adjust;
-  adjust();
+  if (type === 'run') form.oninput = () => {
+    result.textContent = form.checkValidity() ? runMetrics(draft()) : '';
+  };
   form.onsubmit = event => {
     event.preventDefault();
-    const day = form.elements.date.value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
-    if (type.value === 'weight') activities = activities.filter(item => item.type !== 'weight' || item.date !== day);
-    const entry = { type: type.value, date: day, amount: form.elements.amount.valueAsNumber };
-    if (entry.type === 'run') entry.miles = form.elements.miles.valueAsNumber;
+    const entry = draft();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date)) return;
+    if (type === 'weight') activities = activities.filter(item => item.type !== type || item.date !== entry.date);
     activities.push(entry);
-    save('Activity saved.');
-    form.elements.amount.value = '';
-    form.elements.miles.value = '';
-    showActivity();
+    save('Entry saved.');
+    result.textContent = 'Saved · ' + entryText(entry);
+    for (const input of form.querySelectorAll('input[type="number"]')) input.value = '';
+    if (type !== 'run') activityProgress(false);
   };
-  function showActivity() {
-    const monday = new Date(today + 'T12:00:00');
-    monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
-    const week = activities.filter(item => item.date >= localDate(monday) && item.date <= today);
-    const estimates = week.map(estimate).filter(value => value !== null);
-    const miles = week.reduce((sum, item) => sum + (item.miles || 0), 0);
-    const sauna = week.filter(item => item.type === 'sauna').reduce((sum, item) => sum + item.amount, 0);
-    const lifting = week.filter(item => item.type === 'lifting').reduce((sum, item) => sum + item.amount, 0);
-    view.querySelector('#week-activity').textContent =
-      Number(miles.toFixed(2)) + ' mi running · ' + lifting + ' min lifting · ' + sauna + ' min sauna. ' +
-      (estimates.length ? 'Estimated calories (run + lifting): ' + Math.round(estimates.reduce((a, b) => a + b, 0)) + ' kcal.' : 'No calorie estimates yet.');
-    const list = view.querySelector('#activity-log');
-    list.replaceChildren();
-    for (const entry of [...activities].sort((a, b) => b.date.localeCompare(a.date))) {
-      const row = document.createElement('li');
-      const calories = estimate(entry);
-      row.textContent = dateLabel(entry.date) + ' · ' + activityNames[entry.type] + ' · ' +
-        (entry.type === 'run' ? entry.miles + ' mi · ' : '') + entry.amount + (entry.type === 'weight' ? ' lb' : ' min') +
-        (calories === null ? '' : ' · ~' + Math.round(calories) + ' kcal');
-      const remove = document.createElement('button');
-      remove.textContent = 'Delete';
-      remove.onclick = () => {
-        if (!confirm('Delete this ' + activityNames[entry.type].toLowerCase() + ' entry?')) return;
-        activities = activities.filter(item => item !== entry);
-        save('Entry deleted.');
-        showActivity();
-      };
-      row.append(' ', remove);
-      list.append(row);
-    }
-  }
-  showActivity();
+  if (type !== 'run') activityProgress(false);
 }
 
-function weightChart() {
+function backlogButton(count) {
+  if (count <= 3) return;
+  const button = document.createElement('button');
+  button.textContent = backlog ? 'Show latest 3' : 'Show all ' + count + ' entries';
+  button.onclick = () => {
+    backlog = !backlog;
+    render();
+    view.querySelector('.backlog-button')?.focus();
+  };
+  button.className = 'backlog-button';
+  view.append(button);
+}
+
+function activityHistory() {
+  const entries = activityEntries();
+  view.innerHTML = '<h2>' + sectionNames[tab] + ' history</h2>';
+  if (!entries.length) {
+    view.insertAdjacentHTML('beforeend', '<p>No entries yet.</p>');
+    return;
+  }
+  for (const entry of entries.slice(0, backlog ? entries.length : 3)) {
+    const card = document.createElement('section');
+    card.className = 'card';
+    const title = document.createElement('h3');
+    title.textContent = dateLabel(entry.date);
+    const detail = document.createElement('p');
+    detail.textContent = entryText(entry);
+    const remove = document.createElement('button');
+    remove.textContent = 'Delete entry';
+    remove.onclick = () => {
+      if (!confirm('Delete the entry for ' + dateLabel(entry.date) + '?')) return;
+      activities = activities.filter(item => item !== entry);
+      save('Entry deleted.');
+      render();
+    };
+    card.append(title, detail, remove);
+    view.append(card);
+  }
+  backlogButton(entries.length);
+}
+
+function activityProgress(showTitle = true) {
+  view.querySelector('#activity-progress')?.remove();
+  if (showTitle) view.innerHTML = '<h2>' + sectionNames[tab] + ' progress</h2>';
+  const entries = activityEntries();
+  const monday = new Date(today + 'T12:00:00');
+  monday.setDate(monday.getDate() - (monday.getDay() + 6) % 7);
+  const startDay = tab === 'weight' ? today.slice(0, 7) + '-01' : localDate(monday);
+  const period = entries.filter(entry => entry.date >= startDay && entry.date <= today);
   const card = document.createElement('section');
   card.className = 'card';
-  card.innerHTML = '<h3>Body weight</h3>';
-  const points = activities.filter(item => item.type === 'weight').sort((a, b) => a.date.localeCompare(b.date)).slice(-12);
-  if (!points.length) {
-    card.insertAdjacentHTML('beforeend', '<p>Add a weigh-in under Activity to start your chart.</p>');
-    return card;
+  if (tab === 'run') {
+    const totalMiles = period.reduce((sum, entry) => sum + entry.miles, 0);
+    const totalMinutes = period.reduce((sum, entry) => sum + entry.amount, 0);
+    card.innerHTML = `<h3>This week</h3><p>${Number(totalMiles.toFixed(2))} mi · ${Number(totalMinutes.toFixed(2))} min · ${period.length} runs</p>`;
+    if (entries.length) {
+      const longest = entries.reduce((best, entry) => entry.miles > best.miles ? entry : best);
+      const fastest = entries.reduce((best, entry) => entry.amount / entry.miles < best.amount / best.miles ? entry : best);
+      card.insertAdjacentHTML('beforeend', `<h3>Personal records</h3><p>Longest run · ${longest.miles} mi</p><p>Fastest pace · ${runMetrics(fastest).split(' · ')[0]}</p>`);
+    }
+    view.append(card);
+    return;
   }
-  const weights = points.map(item => item.amount);
-  const low = Math.min(...weights);
-  const span = Math.max(1, Math.max(...weights) - low);
-  const start = Date.parse(points[0].date);
-  const timeSpan = Math.max(1, Date.parse(points.at(-1).date) - start);
-  const coords = points.map(item => [
-    points.length === 1 ? 150 : 10 + 280 * (Date.parse(item.date) - start) / timeSpan,
-    85 - 70 * (item.amount - low) / span,
-  ]);
-  card.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 300 100" role="img" aria-label="Body weight trend in pounds">
-    <polyline fill="none" stroke="#89e3f8" stroke-width="2" points="${coords.map(point => point.join(',')).join(' ')}"></polyline>
-    ${coords.map(([x,y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#89e3f8"></circle>`).join('')}
-    </svg>`);
-  const list = document.createElement('ul');
-  for (const point of points) {
-    const row = document.createElement('li');
-    row.textContent = dateLabel(point.date) + ' · ' + point.amount + ' lb';
-    list.append(row);
+  card.id = 'activity-progress';
+  const heading = tab === 'weight' ? 'This month · Body weight (lb)' : 'This week · Sauna time (min)';
+  card.innerHTML = '<h3>' + heading + '</h3>';
+  const daily = new Map();
+  for (const entry of [...period].reverse()) {
+    daily.set(entry.date, tab === 'weight' ? entry.amount : (daily.get(entry.date) || 0) + entry.amount);
   }
-  card.append(list);
-  return card;
+  if (daily.size) {
+    const values = [...daily.values()];
+    const min = Math.min(...values);
+    const span = Math.max(1, Math.max(...values) - min);
+    const start = Date.parse(startDay);
+    const end = new Date(startDay + 'T12:00:00');
+    if (tab === 'weight') end.setMonth(end.getMonth() + 1, 0);
+    else end.setDate(end.getDate() + 6);
+    const duration = Date.parse(localDate(end)) - start;
+    const coords = [...daily].map(([day, value]) => [
+      10 + 280 * (Date.parse(day) - start) / duration, 85 - 70 * (value - min) / span,
+    ]);
+    card.insertAdjacentHTML('beforeend', `<svg viewBox="0 0 300 100" role="img" aria-label="${heading}">
+      <polyline fill="none" stroke="#89e3f8" stroke-width="2" points="${coords.map(point => point.join(',')).join(' ')}"></polyline>
+      ${coords.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="#89e3f8"></circle>`).join('')}
+      </svg><ul>${[...daily].map(([day, value]) => `<li>${dateLabel(day)} · ${value} ${tab === 'weight' ? 'lb' : 'min'}</li>`).join('')}</ul>`);
+  } else {
+    card.insertAdjacentHTML('beforeend', '<p>No entries for this period yet.</p>');
+  }
+  view.append(card);
 }
 
 view.addEventListener('focusin', event => {
@@ -822,12 +860,25 @@ view.addEventListener('focusin', event => {
 
 function render() {
   document.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', button.dataset.tab === tab));
-  ({ workout, history, progress, activity })[tab]();
+  document.querySelector('#section-nav').setAttribute('aria-label', sectionNames[tab] + ' views');
+  document.querySelectorAll('[data-section]').forEach(button => button.setAttribute('aria-pressed', button.dataset.section === section));
+  const views = tab === 'workout'
+    ? { entry: workout, history, progress }
+    : { entry: activityEntry, history: activityHistory, progress: activityProgress };
+  views[section]();
 }
 
-document.querySelector('nav').onclick = event => {
+document.querySelector('#main-nav').onclick = event => {
   if (!event.target.dataset.tab) return;
   tab = event.target.dataset.tab;
+  section = 'entry';
+  backlog = false;
+  render();
+};
+document.querySelector('#section-nav').onclick = event => {
+  if (!event.target.dataset.section) return;
+  section = event.target.dataset.section;
+  backlog = false;
   render();
 };
 
