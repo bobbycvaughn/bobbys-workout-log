@@ -140,6 +140,10 @@ const restOverrides = new Map();
 function startRest(duration) {
   clearInterval(restInterval);
   timer.hidden = false;
+  const panel = document.activeElement?.closest('.card');
+  if (panel && panel.getBoundingClientRect().top < timer.getBoundingClientRect().bottom) {
+    window.scrollBy(0, panel.getBoundingClientRect().top - timer.getBoundingClientRect().bottom - 12);
+  }
   const end = Date.now() + duration * 1000;
   const update = () => {
     const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));

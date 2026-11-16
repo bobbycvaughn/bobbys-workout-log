@@ -107,11 +107,11 @@ main > h2, .stats, footer, dialog { text-align: center; }
 .last-time { color: #a8e8fb; }
 
 #rest {
-  position: fixed;
+  position: sticky;
   z-index: 2;
-  inset: calc(8px + env(safe-area-inset-top)) 12px auto;
+  top: calc(8px + env(safe-area-inset-top));
   max-width: 648px;
-  margin: auto;
+  margin: 0 auto 16px;
   padding: 12px;
   background: #243d58;
   border: 1px solid var(--edge);
