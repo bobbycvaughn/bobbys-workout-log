@@ -323,3 +323,4 @@ header::after {
     repeating-conic-gradient(from 8deg at 50% 36%, #ff352092 0deg 4deg, transparent 7deg 20deg);
   mask-image: radial-gradient(ellipse at 50% 36%, black 8%, transparent 70%);
 }
+.history-sets { list-style: none; padding-inline-start: 12px; margin: 4px 0 12px; }

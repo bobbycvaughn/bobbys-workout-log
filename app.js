@@ -610,7 +610,7 @@ function history() {
     <ul>${program[log.plan].exercises.map(([, name, , , , qualifier], index) => {
       const sets = exerciseSets(log.sets, index)
         .flatMap((set, offset) => set.done ? [`Set ${offset + 1} · ${setLabel(set)}`] : []);
-      return sets.length ? `<li><strong>${name}</strong>${qualifier === 'each' ? ' (lb each)' : ''}<br>${sets.join(' · ')}</li>` : '';
+      return sets.length ? `<li><strong>${name}</strong>${qualifier === 'each' ? ' (lb each)' : ''}<ul class="history-sets">${sets.map(set => `<li>${set}</li>`).join('')}</ul></li>` : '';
     }).join('')}</ul><ul data-extra-history="${log.key}"></ul><button data-edit="${log.key}">Edit workout</button> <button data-delete="${log.key}">Delete workout</button></details>`).join('')
     : '<p>Mark a set complete to start your history.</p>');
   view.querySelectorAll('[data-extra-history]').forEach(list => {
@@ -618,7 +618,16 @@ function history() {
       const item = document.createElement('li');
       const completed = actualSets(row).flatMap((set, index) => set.done ? ['Set ' + (index + 1) + ' · ' + extraSetLabel(set)] : []);
       if (!completed.length) continue;
-      item.textContent = row.name + ' · ' + completed.join(' / ');
+      const title = document.createElement('strong');
+      title.textContent = row.name;
+      const setList = document.createElement('ul');
+      setList.className = 'history-sets';
+      for (const set of completed) {
+        const line = document.createElement('li');
+        line.textContent = set;
+        setList.append(line);
+      }
+      item.append(title, setList);
       list.append(item);
     }
   });
