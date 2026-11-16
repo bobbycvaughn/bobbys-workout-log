@@ -311,3 +311,15 @@ header .header-verse {
   text-transform: none;
 }
 .header-verse span { white-space: nowrap; }
+
+header::after {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 36%, #ff331c 0%, #d41422bb 24%, transparent 62%),
+    repeating-conic-gradient(from 8deg at 50% 36%, #ff352092 0deg 4deg, transparent 7deg 20deg);
+  mask-image: radial-gradient(ellipse at 50% 36%, black 8%, transparent 70%);
+}
