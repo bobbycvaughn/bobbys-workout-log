@@ -267,11 +267,19 @@ function workout() {
 
   view.insertAdjacentHTML('beforeend', `<section class="card"><h3>Custom exercises</h3>
     <div id="extra-list"></div>
-    <form id="extra-form"><label>Exercise<input name="exercise" maxlength="80" required></label>
-      <label>Sets<input name="sets" type="number" inputmode="numeric" min="1" max="99" value="2" required></label>
-      <label>Reps per set<input name="reps" type="number" inputmode="numeric" min="1" max="999" value="10" required></label>
+    <button type="button" id="open-extra" aria-expanded="false" aria-controls="extra-form">Add custom exercise</button>
+    <form id="extra-form" hidden>
+      <label>Exercise name<input name="exercise" maxlength="80" required></label>
+      <label>Reps for set 1<input name="reps" type="number" inputmode="numeric" min="1" max="999" required></label>
       <button>Add exercise</button>
     </form></section>`);
+  const openExtra = view.querySelector('#open-extra');
+  const extraForm = view.querySelector('#extra-form');
+  openExtra.onclick = () => {
+    extraForm.hidden = !extraForm.hidden;
+    openExtra.setAttribute('aria-expanded', !extraForm.hidden);
+    if (!extraForm.hidden) extraForm.elements.exercise.focus();
+  };
   const list = view.querySelector('#extra-list');
   function showExtras() {
     list.replaceChildren();
@@ -368,7 +376,7 @@ function workout() {
         row.sets = actual.length;
         save();
         showExtras();
-        list.children[index].querySelector('.set:last-of-type input').focus();
+        list.children[index].querySelector('.set:last-of-type input[required]').focus();
       };
       item.append(add);
       const remove = document.createElement('button');
@@ -379,7 +387,7 @@ function workout() {
         if (!extras[key].length) delete extras[key];
         save();
         showExtras();
-        view.querySelector('#extra-form input').focus();
+        openExtra.focus();
       };
       item.append(remove);
       list.append(item);
@@ -393,13 +401,16 @@ function workout() {
     const fields = new FormData(form);
     const name = fields.get('exercise').trim();
     if (!name) return;
-    const sets = Number(fields.get('sets'));
+    const sets = 1;
     const reps = Number(fields.get('reps'));
     const actual = Array.from({ length: sets }, () => ({ count: reps, weight: null, done: false }));
     (extras[key] ||= []).push({ name, sets, reps, actual });
     save();
     form.reset();
+    form.hidden = true;
+    openExtra.setAttribute('aria-expanded', 'false');
     showExtras();
+    openExtra.focus();
   };
 
   view.insertAdjacentHTML('beforeend', '<section class="card"><label for="workout-note">Workout note</label><textarea id="workout-note" maxlength="500" rows="3"></textarea><p id="previous-note"></p><button id="finish-workout">Finish workout</button></section>');
