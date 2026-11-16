@@ -1,4 +1,4 @@
-const cacheName = 'bobbys-workout-log-v24';
+const cacheName = 'bobbys-workout-log-v25';
 const assets = ['./', './index.html', './style.css', './app.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './daemon-sickness.otf', './fire.jpg', './smoke.jpg'];
 
 self.addEventListener('install', event => {
