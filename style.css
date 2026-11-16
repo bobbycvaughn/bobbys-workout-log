@@ -288,3 +288,26 @@ dialog::backdrop { background: #070303d9; }
 #rest output:not(.rest-complete) { margin-top: 26px; }
 #rest .rest-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 #rest-close { grid-column: 1 / -1; justify-self: center; min-width: 95px; }
+
+header { position: relative; isolation: isolate; }
+header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(46%, 190px);
+  height: 78%;
+  background: #000;
+  clip-path: polygon(41% 0, 59% 0, 59% 25%, 100% 25%, 100% 40%, 59% 40%, 59% 100%, 41% 100%, 41% 40%, 0 40%, 0 25%, 41% 25%);
+}
+header .header-verse {
+  max-width: 44ch;
+  margin: 8px auto 0;
+  font-size: .75rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.header-verse span { white-space: nowrap; }
