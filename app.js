@@ -140,11 +140,12 @@ const restOverrides = new Map();
 function startRest(duration) {
   clearInterval(restInterval);
   timer.hidden = false;
-  document.body.classList.add('rest-visible');
   const end = Date.now() + duration * 1000;
   const update = () => {
     const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-    timer.querySelector('output').textContent = left
+    const output = timer.querySelector('output');
+    output.classList.toggle('rest-complete', left === 0);
+    output.textContent = left
       ? Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0')
       : 'Rest complete';
     if (!left) {
@@ -166,7 +167,6 @@ timer.querySelectorAll('[data-rest]').forEach(button => button.onclick = () => {
 document.querySelector('#rest-close').onclick = () => {
   clearInterval(restInterval);
   timer.hidden = true;
-  document.body.classList.remove('rest-visible');
 };
 
 function exerciseIndexFor(set, index) {
