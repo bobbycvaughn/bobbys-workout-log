@@ -227,10 +227,49 @@ function workout() {
         const set = sets[index];
         const label = `${name}, set ${offset + 1}`;
         return `<div class="set"><b>Set ${offset + 1}</b>
-          ${weight === null ? '<span></span>' : `<label>lb${qualifier === 'each' ? ' each' : ''}<input type="number" min="0" step="any" inputmode="decimal" data-index="${index}" data-field="weight" aria-label="${label}, pounds" value="${set.weight}"></label>`}
+          ${weight === null ? `<button type="button" data-plank="${index}" aria-label="Start ${label}">Start</button>` : `<label>lb${qualifier === 'each' ? ' each' : ''}<input type="number" min="0" step="any" inputmode="decimal" data-index="${index}" data-field="weight" aria-label="${label}, pounds" value="${set.weight}"></label>`}
           <label>${weight === null ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${weight === null ? 'seconds' : 'reps'}" value="${set.count}"></label>
           <button data-complete="${index}" aria-pressed="${set.done}" aria-label="${set.done ? 'Undo' : 'Complete'} ${label}">${set.done ? '✓ Completed' : 'Done'}</button></div>`;
       }).join('')}<button class="add-set" data-add-set="${exerciseIndex}" aria-label="Add set for ${name}">+ Add set</button></section>`; }).join('')}`;
+
+  let plankInterval;
+  const stopPlank = () => clearInterval(plankInterval);
+  view.querySelectorAll('[data-plank]').forEach(button => {
+    button.onclick = () => {
+      const index = Number(button.dataset.plank);
+      const input = view.querySelector(`[data-index="${index}"][data-field="count"]`);
+      if (!input.value || !input.validity.valid) {
+        input.focus();
+        return;
+      }
+      const running = button.dataset.running === 'true';
+      stopPlank();
+      view.querySelectorAll('[data-plank]').forEach(control => {
+        delete control.dataset.running;
+        control.textContent = 'Start';
+      });
+      if (running) return;
+      button.dataset.running = 'true';
+      const end = Date.now() + input.valueAsNumber * 1000;
+      const update = () => {
+        if (!button.isConnected || sets[index].done) {
+          stopPlank();
+          delete button.dataset.running;
+          button.textContent = 'Start';
+          return;
+        }
+        const remaining = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+        button.textContent = remaining ? remaining + 's' : 'Time up';
+        if (!remaining) {
+          stopPlank();
+          delete button.dataset.running;
+          navigator.vibrate?.([200, 100, 200]);
+        }
+      };
+      plankInterval = setInterval(update, 200);
+      update();
+    };
+  });
 
   view.querySelectorAll('[data-add-set]').forEach(button => button.onclick = () => {
     const exerciseIndex = Number(button.dataset.addSet);
@@ -482,7 +521,7 @@ function workout() {
   });
 
   function refreshCompletion() {
-    const buttons = [...view.querySelectorAll('.set button')];
+    const buttons = [...view.querySelectorAll('.set button[aria-pressed]')];
     for (const button of view.querySelectorAll('[data-complete]')) {
       const index = Number(button.dataset.complete);
       const done = sets[index].done;
@@ -496,6 +535,7 @@ function workout() {
       button.disabled = !lastTime(exercises[index][0]).some(set => exerciseSets(sets, index)[set.offset]?.done === false);
       button.textContent = 'Copy last session';
     });
+    view.querySelectorAll('[data-plank]').forEach(button => { button.disabled = sets[button.dataset.plank].done; });
     const next = buttons.find(button => button.getAttribute('aria-pressed') === 'false');
     for (const button of buttons) button.closest('.set').classList.toggle('next-set', button === next);
     const completed = buttons.filter(button => button.getAttribute('aria-pressed') === 'true').length;

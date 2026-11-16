@@ -251,3 +251,4 @@ dialog { border-radius: 0; background: linear-gradient(142deg, #3a1011, #140909 
 dialog::backdrop { background: #070303d9; }
 .chart-row meter::-webkit-meter-optimum-value { background: #ff8177; }
 #extra-form[hidden] { display: none; }
+.set [data-plank] { color: #ff9a8d; }
