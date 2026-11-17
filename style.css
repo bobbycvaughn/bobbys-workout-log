@@ -324,3 +324,10 @@ header::after {
   mask-image: radial-gradient(ellipse at 50% 36%, black 8%, transparent 70%);
 }
 .history-sets { list-style: none; padding-inline-start: 12px; margin: 4px 0 12px; }
+
+/* Reserve room for the longest passage on narrow phones. */
+header .header-verse {
+  height: 6em;
+  display: block;
+  align-content: center;
+}
