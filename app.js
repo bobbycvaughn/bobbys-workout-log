@@ -886,8 +886,45 @@ function render() {
   views[section]();
 }
 
+const passages = [
+  ['So run, that ye may obtain.', '1 Corinthians 9:24'],
+  ['And let us not be weary in well doing: for in due season we shall reap, if we faint not.', 'Galatians 6:9'],
+  ['And whatsoever ye do, do it heartily, as to the Lord, and not unto men.', 'Colossians 3:23'],
+  ['They shall run, and not be weary; and they shall walk, and not faint.', 'Isaiah 40:31'],
+  ['It is God that girdeth me with strength, and maketh my way perfect.', 'Psalm 18:32'],
+  ['Let us run with patience the race that is set before us.', 'Hebrews 12:1'],
+];
+let passageIndex = 0;
+let verseAnimation;
+
+async function rotateVerse() {
+  const verse = document.querySelector('.header-verse');
+  passageIndex = (passageIndex + 1) % passages.length;
+  const [quote, reference] = passages[passageIndex];
+  verseAnimation?.cancel();
+  const replaceVerse = () => {
+    const citation = document.createElement('span');
+    citation.textContent = '· ' + reference + ' (KJV)';
+    verse.replaceChildren('“' + quote + '” ', citation);
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    replaceVerse();
+    return;
+  }
+  verseAnimation = verse.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150 });
+  try {
+    await verseAnimation.finished;
+  } catch {
+    return;
+  }
+  replaceVerse();
+  verseAnimation = verse.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 230 });
+}
+
 document.querySelector('#main-nav').onclick = event => {
   if (!event.target.dataset.tab) return;
+  if (tab === event.target.dataset.tab && section === 'entry') return;
+  rotateVerse();
   tab = event.target.dataset.tab;
   section = 'entry';
   backlog = false;
@@ -895,6 +932,8 @@ document.querySelector('#main-nav').onclick = event => {
 };
 document.querySelector('#section-nav').onclick = event => {
   if (!event.target.dataset.section) return;
+  if (section === event.target.dataset.section) return;
+  rotateVerse();
   section = event.target.dataset.section;
   backlog = false;
   render();
