@@ -887,12 +887,18 @@ function render() {
 }
 
 const passages = [
-  ['So run, that ye may obtain.', '1 Corinthians 9:24'],
-  ['And let us not be weary in well doing: for in due season we shall reap, if we faint not.', 'Galatians 6:9'],
-  ['And whatsoever ye do, do it heartily, as to the Lord, and not unto men.', 'Colossians 3:23'],
-  ['They shall run, and not be weary; and they shall walk, and not faint.', 'Isaiah 40:31'],
-  ['It is God that girdeth me with strength, and maketh my way perfect.', 'Psalm 18:32'],
-  ['Let us run with patience the race that is set before us.', 'Hebrews 12:1'],
+  ['So run to win!', '1 Corinthians 9:24'],
+  ['Don’t be afraid, for I am with you.', 'Isaiah 41:10'],
+  ['Be strong and courageous!', 'Joshua 1:9'],
+  ['For I can do everything through Christ, who gives me strength.', 'Philippians 4:13'],
+  ['But those who trust in the Lord will find new strength.', 'Isaiah 40:31'],
+  ['God is our refuge and strength, always ready to help in times of trouble.', 'Psalm 46:1'],
+  ['My grace is all you need. My power works best in weakness.', '2 Corinthians 12:9'],
+  ['The Lord is my light and my salvation—so why should I be afraid?', 'Psalm 27:1'],
+  ['So let’s not get tired of doing what is good.', 'Galatians 6:9'],
+  ['Work willingly at whatever you do, as though you were working for the Lord rather than for people.', 'Colossians 3:23'],
+  ['God arms me with strength, and he makes my way perfect.', 'Psalm 18:32'],
+  ['And let us run with endurance the race God has set before us.', 'Hebrews 12:1'],
 ];
 let passageIndex = 0;
 let verseAnimation;
@@ -904,7 +910,7 @@ async function rotateVerse() {
   verseAnimation?.cancel();
   const replaceVerse = () => {
     const citation = document.createElement('span');
-    citation.textContent = '· ' + reference + ' (KJV)';
+    citation.textContent = '· ' + reference + ' (NLT)';
     verse.replaceChildren('“' + quote + '” ', citation);
   };
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
