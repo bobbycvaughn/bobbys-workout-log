@@ -200,6 +200,28 @@ function badgeArt(achievement) {
   return `<svg class="award-badge ${unlocked ? 'is-unlocked' : 'is-locked'} ${elite && unlocked ? 'challenge-earned' : ''} ${green && unlocked ? 'green-earned' : ''} ${superBadge && unlocked ? 'super-earned' : ''}" viewBox="-16 -18 132 140" aria-hidden="true">${elite ? flames : sunburst}<polygon points="${points}" fill="hsl(${(n*7)%40},70%,${18+n%8}%)" stroke="#ff8074" stroke-width="2"/><circle cx="50" cy="48" r="30" fill="#160909" stroke="#a4433a"/><text x="50" y="57" text-anchor="middle" fill="#fff2ee" font-size="27">${symbols[achievement.category]}</text><path d="M18 76H82L76 99H24Z" fill="#a82425" stroke="#ff8074"/><text x="50" y="92" text-anchor="middle" fill="white" font-size="13">${n}</text>${Array.from({length:5},(_,i)=>`<circle cx="${34+i*8}" cy="17" r="2.5" fill="${i<badgeDifficulty(achievement)?'#ffd0a2':'#301515'}" stroke="#ffd0a2" stroke-width=".7"/>`).join('')}</svg>`;
 }
 let awardQueue = [];
+let levelQueue = [];
+let celebratedLevel = null;
+function trackLevelUp(xp, celebrate) {
+  const level=Math.floor(xp/500)+1;
+  if(celebratedLevel===null) {
+    try {const saved=Number(localStorage.getItem(storageKey+'-level-celebrated'));celebratedLevel=Number.isInteger(saved)&&saved>=1?saved:level;} catch {celebratedLevel=level;}
+  }
+  if(level>celebratedLevel) {
+    if(celebrate)levelQueue.push({from:celebratedLevel,to:level});
+    celebratedLevel=level;
+  }
+  try {localStorage.setItem(storageKey+'-level-celebrated',String(celebratedLevel));} catch {}
+}
+function showLevelUp(level) {
+  const popup=document.querySelector('#level-popup');
+  popup.querySelector('output').textContent=level.to;
+  popup.querySelector('.level-message').textContent=level.to>level.from+1?'You climbed '+(level.to-level.from)+' levels!':'Your effort is adding up!';
+  popup.querySelector('.level-xp').textContent=((level.to-1)*500).toLocaleString()+' XP milestone reached';
+  popup.showModal();
+  popup.querySelector('button').focus();
+}
+
 function checkAchievements(celebrate = false, context = null) {
   const stats = achievementStats();
   const earned = achievementList.filter(a => !awards[a.id] && stats[a.metric] >= a.target);
@@ -211,9 +233,11 @@ function checkAchievements(celebrate = false, context = null) {
       awardDetails[a.id] = evidence ? {source:String(evidence.source).slice(0,200), ...(evidence.activityDate?{activityDate:evidence.activityDate}:{})} : {source:'Recognized from existing or restored logs.'};
     });
     save();
-    if (celebrate) { awardQueue.push(...earned); showNextAward(); }
+    if (celebrate) awardQueue.push(...earned);
   }
   const xp = stats.sets*10 + stats.workouts*100 + stats.runs*25 + stats.sauna*10 + stats.weightDays*10;
+  trackLevelUp(xp,celebrate);
+  if(celebrate)showNextAward();
   const ribbon = document.querySelector('#award-tab');
   if (ribbon) ribbon.setAttribute('aria-label', 'Achievements · Level ' + (Math.floor(xp/500)+1) + ' · ' + Object.keys(awards).length + ' unlocked');
   return {stats,xp};
@@ -258,12 +282,13 @@ function toggleDisplayedFavorite() {
 }
 function replayAchievement(id) {
   const award = achievementList.find(item => item.id === id);
-  if (!award || (!awards[id] && !award.known) || document.querySelector('#award-popup').open) return;
+  if (!award || (!awards[id] && !award.known) || document.querySelector('#award-popup').open || document.querySelector('#level-popup').open) return;
   showAward(award);
 }
 function showNextAward() {
-  if (document.querySelector('#award-popup').open || !awardQueue.length) return;
-  showAward(awardQueue.shift());
+  if (document.querySelector('#award-popup').open || document.querySelector('#level-popup').open) return;
+  if(levelQueue.length){showLevelUp(levelQueue.shift());return;}
+  if(awardQueue.length)showAward(awardQueue.shift());
 }
 let achievementFilter = 'all';
 function renderAchievements() {
@@ -345,6 +370,9 @@ document.addEventListener('DOMContentLoaded', () => {
     showcaseTitle=showcaseTitle===displayedAward.id?'':displayedAward.id;
     save();render();updateAwardFavorite();
   };
+  const levelPopup=document.querySelector('#level-popup');
+  levelPopup.querySelector('button').onclick=()=>levelPopup.close();
+  levelPopup.addEventListener('close',()=>showNextAward());
   const popup=document.querySelector('#award-popup');
   document.querySelector('#award-next').onclick=()=>popup.close();
   popup.addEventListener('close',()=>showNextAward());
