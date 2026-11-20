@@ -331,3 +331,252 @@ header .header-verse {
   display: block;
   align-content: center;
 }
+/* Achievement ribbon and accessible celebrations */
+header { position: relative; }
+#award-tab { position:absolute; right:8px; top:8px; min-width:48px; min-height:48px; padding:8px; z-index:2; font-size:1.5rem; background:transparent; border:0; box-shadow:none; clip-path:none; }
+#award-tab:focus-visible { outline:2px solid #ff8074; outline-offset:0; }
+header h1 { padding-inline:34px; }
+.award-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.award-card { background:linear-gradient(145deg,#271011,#100909); border:1px solid #713633; padding:12px; text-align:center; overflow-wrap:anywhere; }
+.award-card h4 { margin:8px 0; font-size:1rem; }
+.award-card p { font-size:.875rem; }
+.award-badge { width:96px; height:106px; max-width:100%; }
+.locked-badge { margin:16px auto; width:64px; height:64px; display:grid; place-items:center; border:2px dashed #804b48; color:#b28e8b; font-size:2rem; }
+.unlocked { border-color:#ff8074; }
+#award-popup { position:fixed; inset:0; margin:auto; width:min(88vw,420px); max-height:85dvh; box-sizing:border-box; overflow:auto; z-index:100; text-align:center; background:radial-gradient(ellipse,#681a20,#100707 75%); border:2px solid #ff8074; padding:24px; }
+#award-popup::backdrop { background:#000b; }
+#award-popup h2 { font-family:system-ui,sans-serif; font-size:1.6rem; line-height:1.3; }
+#award-content { animation:award-pulse 2.8s ease-in-out infinite; }
+#award-popup .award-badge { width:150px; height:165px; }
+@keyframes award-pulse { 0%,100% { opacity:.78; transform:scale(.96); } 50% { opacity:1; transform:scale(1); } }
+progress { width:100%; height:20px; accent-color:#d63840; }
+@media(min-width:650px) { .award-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@media(prefers-reduced-motion:reduce) { #award-content { animation:none; } }
+/* Today dashboard, entry corrections, and favorite badges */
+#today-tab { display:block; width:100%; margin-top:16px; }
+#main-nav { margin-top:8px; }
+.today-date { text-align:center; margin-bottom:16px; }
+.dashboard-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0; }
+.dashboard-stats .stat { margin:0; text-align:center; }
+.quick-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:16px; }
+.favorite-badges { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin:12px 0; }
+.favorite-badges > div { display:flex; flex-direction:column; align-items:center; flex:0 1 100px; text-align:center; }
+.favorite-badges span { font-size:.8rem; line-height:1.3; }
+.favorite-badges .award-badge { width:78px; height:86px; }
+.entry-actions,.recap-controls { display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin:12px 0; }
+#activity-form small { font-size:.8rem; line-height:1.4; }
+#cancel-edit { margin-top:10px; }
+.award-card button { width:100%; font-size:.85rem; padding:8px 4px; }
+.award-card button:disabled { opacity:.55; }
+#weekly-recap h4 { text-align:center; margin-bottom:8px; }
+
+/* Locked artwork stays subdued; earned badges carry a gold sunburst. */
+.award-badge.is-locked { filter:grayscale(.9) saturate(.25); opacity:.42; }
+.award-card:not(.unlocked) .locked-badge { opacity:.5; border-color:#716666; color:#a69b9b; }
+.badge-sunburst { filter:drop-shadow(0 0 4px #f6b93688); }
+.award-card.unlocked { border-color:#bd923f; }
+
+.badge-reason { line-height:1.45; color:#d7c7c0; }
+.favorite-badges .badge-reason { display:block; font-size:.78rem; margin-top:6px; }
+
+/* Compact achievement descriptions while preserving title emphasis. */
+.award-card .badge-reason, .favorite-badges .badge-reason { font-size:.75rem; line-height:1.4; }
+#award-content .badge-reason { font-size:.8rem; line-height:1.4; }
+
+/* Blue-flame challenge badges become larger only when earned. */
+.badge-blue-flames { filter:drop-shadow(0 0 3px #29acffaa); }
+.award-card .award-badge.challenge-earned { width:112px; height:124px; }
+.favorite-badges .award-badge.challenge-earned { width:90px; height:100px; }
+#award-popup .award-badge.challenge-earned { width:174px; height:192px; }
+.award-card.challenge-unlocked { border-color:#53bfff; background:linear-gradient(145deg,#102338,#110c12); }
+
+/* Shared slots keep every achievement panel aligned and the same size. */
+.award-card { display:grid; grid-template-rows:124px var(--badge-name-height,4rem) var(--badge-description-height,7rem) var(--badge-status-height,3rem) 44px; gap:8px; margin:0; min-width:0; }
+.badge-art-slot { display:flex; justify-content:center; align-items:center; min-width:0; height:124px; }
+.badge-art-slot .locked-badge { margin:0; }
+.award-card .badge-name { margin:0; align-self:start; line-height:1.3; }
+.award-card .badge-reason { font-size:.6875rem; line-height:1.4; margin:0; align-self:start; }
+.award-card .badge-status { margin:0; align-self:start; font-size:.75rem; line-height:1.4; }
+.award-card > button, .badge-action-space { height:44px; min-height:44px; align-self:end; margin:0; }
+.favorite-badges .badge-reason { font-size:.6875rem; }
+#award-content .badge-reason { font-size:.75rem; }
+
+#app-clock { display:block; text-align:center; margin:16px 0 6px; color:#fff2ee; font-size:1.15rem; font-weight:650; font-variant-numeric:tabular-nums; letter-spacing:.04em; }
+#app-clock + #today-tab { margin-top:0; }
+
+.badge-filters { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:18px 0; }
+.badge-filters button { min-height:44px; flex:1 1 95px; }
+#undo-bar:not([hidden]) { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:10px; padding:10px; margin-bottom:14px; border:1px solid #b27151; background:#221311; text-align:center; }
+#undo-message { font-size:.8rem; color:#e2c8bb; }
+#undo-last { min-height:44px; }
+.swap-exercise { margin:0 auto 10px; display:block; font-size:.8rem; }
+.swap-hint { text-align:center; }
+#swap-dialog { max-width:min(92vw,440px); }
+#swap-dialog label { display:grid; gap:8px; margin:16px 0; }
+#swap-choice { width:100%; min-height:48px; background:#170c0c; color:#fff2ee; border:1px solid #87504a; padding:8px; font:inherit; }
+
+/* Progress fits the existing bottom action slot on unfinished visible goals. */
+.badge-progress-slot { height:44px; align-self:end; display:flex; flex-direction:column; justify-content:center; gap:5px; min-width:0; }
+.badge-progress-slot small { font-size:.6875rem; line-height:1.2; color:#d7c7c0; }
+.badge-progress-track { display:block; width:100%; height:10px; margin:0; appearance:none; -webkit-appearance:none; border:1px solid #79413c; border-radius:8px; overflow:hidden; background:#30201f; accent-color:#e95e58; }
+.badge-progress-track::-webkit-progress-bar { background:#30201f; border-radius:8px; }
+.badge-progress-track::-webkit-progress-value { background:linear-gradient(90deg,#ab252e,#ff8177); border-radius:8px; }
+.badge-progress-track::-moz-progress-bar { background:linear-gradient(90deg,#ab252e,#ff8177); border-radius:8px; }
+.challenge-progress .badge-progress-track { border-color:#356f96; accent-color:#55c7ff; }
+.challenge-progress .badge-progress-track::-webkit-progress-value { background:linear-gradient(90deg,#1769b4,#7adfff); }
+.challenge-progress .badge-progress-track::-moz-progress-bar { background:linear-gradient(90deg,#1769b4,#7adfff); }
+
+/* Green Flame is the highest challenge tier; all panels reserve the same art space. */
+.badge-green-flames { filter:drop-shadow(0 0 4px #43f498bb); }
+.award-card, .badge-art-slot { --badge-art-height:148px; }
+.award-card { grid-template-rows:var(--badge-art-height) var(--badge-name-height,4rem) var(--badge-description-height,7rem) var(--badge-status-height,3rem) 44px; }
+.badge-art-slot { height:var(--badge-art-height); }
+.award-card .award-badge.green-earned { width:128px; height:142px; }
+.favorite-badges .award-badge.green-earned { width:104px; height:114px; }
+#award-popup .award-badge.green-earned { width:198px; height:218px; }
+.award-card.green-unlocked { border-color:#66eda1; background:linear-gradient(145deg,#0e3024,#110c12); }
+.green-progress .badge-progress-track { border-color:#328959; accent-color:#68eea2; }
+.green-progress .badge-progress-track::-webkit-progress-value { background:linear-gradient(90deg,#18834b,#8dffba); }
+.green-progress .badge-progress-track::-moz-progress-bar { background:linear-gradient(90deg,#18834b,#8dffba); }
+#award-content .award-badge.challenge-earned { animation:badge-spin-bounce 1.9s ease-out both; transform-origin:center; }
+#award-content .award-badge.green-earned { animation-duration:2.4s; }
+@keyframes badge-spin-bounce {
+  0% { transform:translateY(18px) rotate(-180deg) scale(.65); }
+  45% { transform:translateY(-15px) rotate(175deg) scale(1.06); }
+  65% { transform:translateY(0) rotate(360deg) scale(1); }
+  80% { transform:translateY(-9px) rotate(360deg) scale(1.02); }
+  100% { transform:translateY(0) rotate(360deg) scale(1); }
+}
+@media(prefers-reduced-motion:reduce) { #award-content .award-badge.challenge-earned { animation:none; } }
+
+/* Super tier: ghostly black flames edged with spectral light. */
+.badge-black-flames { filter:drop-shadow(0 0 2px #e0e7ffcc) drop-shadow(0 0 6px #9098bf77); }
+.award-card, .badge-art-slot { --badge-art-height:170px; }
+.award-card .award-badge.super-earned { width:146px; height:160px; }
+.favorite-badges .award-badge.super-earned { width:112px; height:124px; }
+#award-popup .award-badge.super-earned { width:218px; height:240px; }
+.award-card.super-unlocked { border-color:#b8bed4; background:radial-gradient(ellipse at top,#292a38,#08090e 75%); }
+.super-progress .badge-progress-track { border-color:#8d95ad; accent-color:#b8c1df; }
+.super-progress .badge-progress-track::-webkit-progress-value { background:linear-gradient(90deg,#343746,#cbd2eb); }
+.super-progress .badge-progress-track::-moz-progress-bar { background:linear-gradient(90deg,#343746,#cbd2eb); }
+#award-content .award-badge.is-unlocked:not(.challenge-earned) { animation:badge-earned-bounce 1.25s ease-out both; }
+@keyframes badge-earned-bounce {
+  0% { transform:translateY(20px) scale(.85); }
+  40% { transform:translateY(-15px) scale(1.05); }
+  65% { transform:translateY(0) scale(1); }
+  80% { transform:translateY(-6px); }
+  100% { transform:translateY(0); }
+}
+#award-content.super-celebration { position:relative; isolation:isolate; animation:none; }
+#award-content.super-celebration::before, #award-content.super-celebration::after { content:''; position:absolute; inset:9% 3% 22%; border-radius:50%; pointer-events:none; z-index:-1; opacity:0; background:radial-gradient(ellipse,transparent 35%,#bac6f345 50%,#070811aa 60%,transparent 72%); animation:spectral-awakening 3.5s ease-out both; }
+#award-content.super-celebration::after { animation-delay:.2s; transform:rotate(55deg); }
+#award-content .award-badge.super-earned { animation:phantom-reveal 3.5s cubic-bezier(.2,.7,.25,1) both; }
+@keyframes phantom-reveal {
+  0% { opacity:0; transform:perspective(650px) translateY(24px) rotateY(-180deg) scale(.2); filter:blur(10px); }
+  30% { opacity:.3; transform:perspective(650px) translateY(-15px) rotateY(45deg) scale(1.1); filter:blur(3px); }
+  50% { opacity:0; transform:perspective(650px) translateY(-8px) rotateY(180deg) scale(.85); filter:blur(7px); }
+  72% { opacity:1; transform:perspective(650px) translateY(-13px) rotateY(360deg) scale(1.12); filter:blur(0); }
+  88% { opacity:1; transform:perspective(650px) translateY(3px) rotateY(360deg) scale(.98); }
+  100% { opacity:1; transform:perspective(650px) translateY(0) rotateY(360deg) scale(1); filter:blur(0); }
+}
+@keyframes spectral-awakening {
+  0% { opacity:0; transform:scale(.3) rotate(-35deg); }
+  35% { opacity:.65; transform:scale(1.1) rotate(35deg); }
+  70% { opacity:.4; transform:scale(1.2) rotate(130deg); }
+  100% { opacity:0; transform:scale(1.5) rotate(180deg); }
+}
+@media(prefers-reduced-motion:reduce) {
+  #award-content .award-badge.is-unlocked:not(.challenge-earned), #award-content .award-badge.super-earned { animation:none; }
+  #award-content.super-celebration::before, #award-content.super-celebration::after { animation:none; display:none; }
+}
+
+.badge-art-slot .award-badge.super-earned { flex-shrink:0; max-width:calc(100% + 20px); }
+
+/* Earned badges can replay their celebration without changing progress. */
+.award-card .badge-replay, .badge-mini-replay { display:flex; justify-content:center; align-items:center; width:100%; height:100%; min-height:44px; padding:0; margin:0; background:transparent; border:0; box-shadow:none; clip-path:none; }
+.badge-replay:hover, .badge-mini-replay:hover { filter:brightness(1.12); }
+.badge-replay:focus-visible, .badge-mini-replay:focus-visible { outline:2px solid #ff8177; outline-offset:-2px; }
+#award-favorite { margin-right:8px; }
+/* All unfinished goals use the same red progress color. */
+.badge-progress-slot .badge-progress-track { accent-color:#e95e58; border-color:#79413c; }
+.badge-progress-slot .badge-progress-track::-webkit-progress-value { background:linear-gradient(90deg,#ab252e,#ff8177); }
+.badge-progress-slot .badge-progress-track::-moz-progress-bar { background:linear-gradient(90deg,#ab252e,#ff8177); }
+
+.award-card { position:relative; }
+.award-card.unlocked { cursor:pointer; }
+.favorite-marker { position:absolute; top:8px; right:10px; color:#ffd978; font-size:1rem; line-height:1; pointer-events:none; text-shadow:0 0 5px #e9b84855; }
+#award-favorite-hint { font-size:.75rem; line-height:1.4; }
+#award-favorite:disabled { opacity:.55; }
+
+header #showcase-title { text-transform:none; letter-spacing:.04em; color:#ffd978; font-size:.85rem; line-height:1.4; margin:10px 0; }
+.achievement-highlights h3 { text-align:center; margin:12px 0; }
+.close-goal { margin:12px 0; padding-bottom:12px; border-bottom:1px solid #56312d; }
+.close-goal strong { display:block; font-size:.9rem; text-align:center; }
+.achievement-highlights label { display:grid; gap:8px; margin-top:16px; text-align:center; }
+#showcase-choice { width:100%; min-height:44px; background:#170c0c; color:#fff2ee; border:1px solid #87504a; padding:8px; font:inherit; }
+.achievement-timeline ol { list-style:none; padding:0; }
+.achievement-timeline li { padding:12px 0; border-bottom:1px solid #56312d; }
+.achievement-timeline li button { width:100%; }
+.achievement-timeline li p { font-size:.8rem; }
+#award-title { margin-right:8px; }
+
+/* Compact entry buttons and a swipeable chronological achievement track. */
+.achievement-tools { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:16px 0; }
+.achievement-tools button { min-height:52px; }
+#achievement-panel { width:min(94vw,900px); max-width:calc(100vw - 20px); max-height:88dvh; padding:20px 14px; background:linear-gradient(145deg,#291013,#100909); border:1px solid #a65349; overflow:auto; }
+#achievement-panel::backdrop { background:#000b; }
+#achievement-panel-title { font-size:clamp(1.5rem,5vw,2rem); line-height:1.6; text-align:center; margin:6px 0 16px; }
+#achievement-panel > form { text-align:center; }
+#achievement-panel-body { min-width:0; }
+.timeline-instructions { text-align:center; font-size:.8rem; }
+.timeline-navigation { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:14px 0; }
+.timeline-navigation span { font-size:.8rem; text-align:center; }
+.timeline-navigation button:disabled { opacity:.4; cursor:default; }
+.achievement-timeline .timeline-track { display:flex; list-style:none; gap:16px; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; scroll-snap-type:x mandatory; scroll-padding-inline:8px; padding:8px 8px 18px; margin:0; scrollbar-color:#ab514c #211213; scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+.achievement-timeline .timeline-track > li { flex:0 0 min(74vw,250px); position:relative; padding:0 0 8px; margin:0; border:0; scroll-snap-align:start; display:flex; flex-direction:column; min-width:0; }
+.timeline-track > li::before { content:''; position:absolute; left:0; right:-16px; top:60px; height:2px; background:#a9574f; }
+.timeline-track > li:last-child::before { right:0; }
+.timeline-track > li::after { content:''; position:absolute; top:55px; left:calc(50% - 6px); width:12px; height:12px; border-radius:50%; background:#ff8177; box-shadow:0 0 8px #ff817766; }
+.timeline-date { display:block; min-height:48px; text-align:center; font-size:.75rem; line-height:1.5; color:#edcbc4; padding:4px; }
+.timeline-card { margin-top:25px; padding:12px; border:1px solid #7a403b; background:#170d0e; text-align:center; flex:1; }
+.timeline-card h3 { margin:10px 0; font-size:1rem; }
+.achievement-timeline .timeline-card p { font-size:.75rem; line-height:1.45; }
+.achievement-timeline .timeline-card .timeline-badge { width:100%; display:flex; justify-content:center; align-items:center; height:170px; margin:0; padding:0; background:transparent; border:0; clip-path:none; }
+.timeline-badge .award-badge.challenge-earned { width:112px; height:124px; }
+.timeline-badge .award-badge.green-earned { width:128px; height:142px; }
+.timeline-badge .award-badge.super-earned { width:146px; height:160px; }
+
+.exercise-panel-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin:10px 0; }
+.exercise-panel-controls button { min-height:44px; font-size:.8rem; padding:8px 10px; }
+.exercise-panel-controls button:disabled { opacity:.4; cursor:default; }
+.exercise-completion, .workout-order-tools { text-align:center; font-size:.8rem; }
+.workout-order-tools { margin:10px 0 16px; }
+.exercise-panel-body[hidden] { display:none; }
+.exercise-panel[data-complete="true"] { border-color:#a97a40; }
+
+.exercise-order-controls { display:flex; justify-content:flex-end; gap:6px; margin:0 0 8px; }
+.exercise-order-controls button { width:44px; min-width:44px; height:44px; min-height:44px; padding:0; font-size:1.5rem; line-height:1; background:transparent; }
+.exercise-order-controls button:disabled { opacity:.3; cursor:default; }
+
+/* A balanced three-column header keeps the exercise name centered. */
+.exercise-card-header { display:grid; grid-template-columns:94px minmax(0,1fr) 94px; align-items:start; gap:8px; padding:0; min-height:44px; text-align:center; }
+.exercise-card-header .exercise-order-controls { justify-content:flex-start; margin:0; gap:6px; }
+.exercise-card-header > h3 { text-align:center; min-width:0; margin:0; padding-top:10px; line-height:1.35; overflow-wrap:anywhere; }
+.exercise-card-header > a { position:static; justify-self:end; align-self:start; display:inline-flex; align-items:center; justify-content:flex-end; min-height:44px; padding:0; white-space:nowrap; }
+@media(max-width:380px) {
+  .exercise-card-header { grid-template-columns:64px minmax(0,1fr) 64px; gap:6px; }
+  .exercise-card-header .exercise-order-controls { flex-direction:column; align-items:flex-start; }
+  .exercise-card-header > a { font-size:.8rem; }
+}
+
+#activity-form textarea { width:100%; min-height:80px; padding:10px; background:#170c0c; color:#fff2ee; border:1px solid #87504a; font:inherit; resize:vertical; }
+.movement-filter { display:grid; gap:8px; text-align:center; margin:12px 0; }
+.movement-filter select { min-height:44px; width:100%; background:#170c0c; color:#fff2ee; border:1px solid #87504a; padding:8px; font:inherit; }
+.weekly-distance-chart { display:block; width:100%; height:auto; margin-top:12px; }
+.movement-legend, .distance-record-note { text-align:center; font-size:.8rem; line-height:1.45; }
+.run-route { white-space:pre-wrap; overflow-wrap:anywhere; }
+
+.sauna-week > h3, .sauna-week-dates { text-align:center; }
+.sauna-distance-chart { display:block; width:100%; height:auto; margin:12px 0; }
+.sauna-stats { margin:12px 0; }
+.sauna-stats .stat { text-align:center; min-width:0; }
