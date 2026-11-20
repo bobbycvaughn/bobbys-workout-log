@@ -33,10 +33,10 @@
     <button data-rest="120">120s</button><button id="rest-close">Dismiss</button>
   </div>
 </aside>
-<aside id="undo-bar" hidden><span id="undo-message"></span><button type="button" id="undo-last">Undo last change</button></aside>
 <main id="view"></main>
 </div>
 <footer><p>Saved in this browser on this device. Clearing site data, private browsing, or switching devices can remove access to your logs.</p><button id="export">Export workout data</button> <button id="import">Restore backup</button><input hidden type="file" id="backup" accept=".json,application/json"><p id="status" role="status"></p><small>Scripture quotations are taken from the Holy Bible, New Living Translation, copyright © 1996, 2004, 2015 by Tyndale House Foundation. Used by permission of Tyndale House Publishers, Carol Stream, Illinois 60188. All rights reserved.</small></footer>
+<dialog id="delete-set-dialog" aria-labelledby="delete-set-title"><h2 id="delete-set-title">Delete set?</h2><p></p><div class="delete-set-actions"><form method="dialog"><button data-cancel-delete-set>Cancel</button></form><button type="button" data-confirm-delete-set>Delete set</button></div></dialog>
 <dialog id="form-guide" aria-labelledby="form-title"><h2 id="form-title"></h2><p></p><p><a id="form-video" target="_blank" rel="noopener noreferrer">Find a demo on YouTube ↗</a></p><form method="dialog"><button>Exit menu</button></form></dialog>
 
 <dialog id="finish-summary" aria-labelledby="finish-title">

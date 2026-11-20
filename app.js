@@ -109,7 +109,7 @@ function validBackup(data) {
       Array.isArray(data.extras) || !Object.entries(data.extras).every(([key, rows]) =>
         /^\d{4}-\d{2}-\d{2}-[ABC]$/.test(key) && Array.isArray(rows) && rows.every(row =>
           row && typeof row.name === 'string' && row.name.trim().length > 0 && row.name.length <= 80 &&
-          Number.isInteger(row.sets) && row.sets > 0 && row.sets <= 99 &&
+          Number.isInteger(row.sets) && row.sets >= 0 && row.sets <= 99 &&
           Number.isInteger(row.reps) && row.reps > 0 && row.reps <= 999)))) return false;
   if (data.notes !== undefined && (!data.notes || typeof data.notes !== 'object' ||
       Array.isArray(data.notes) || !Object.values(data.notes).every(note => typeof note === 'string' && note.length <= 500))) return false;
@@ -130,7 +130,7 @@ function validBackup(data) {
   if (data.activities?.some(entry => entry.time !== undefined && !/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(entry.time))) return false;
   return Object.entries(data.sessions).every(([key, sets]) => {
     const match = /^(\d{4}-\d{2}-\d{2})-([ABC])$/.exec(key);
-    return match && Number.isFinite(Date.parse(match[1])) && Array.isArray(sets) && sets.length >= 12 &&
+    return match && Number.isFinite(Date.parse(match[1])) && Array.isArray(sets) && (sets.length >= 12 || sets.every(set => Number.isInteger(set?.exerciseIndex))) &&
       sets.every((set, index) => {
         const exercise = (data.routines?.[key] || legacyProgram[match[2]].exercises)[exerciseIndexFor(set, index)];
         if (!exercise) return false;
@@ -159,46 +159,9 @@ try {
   status.textContent = 'Saved data could not be read. This session may only be available until you close the app.';
 }
 
-const undoKey = storageKey + '-undo';
-let undoStack = [];
-let activeEditGroup = null;
-let lastUndoGroup = null;
-function undoState() { return JSON.stringify({ version:1, sessions, extras, notes, activities, routines, exerciseOrder }); }
-let previousUndoState = undoState();
-try {
-  const savedUndo = JSON.parse(localStorage.getItem(undoKey) || '[]');
-  if (Array.isArray(savedUndo)) undoStack = savedUndo.filter(item => typeof item.label === 'string' && typeof item.state === 'string' && validBackup(JSON.parse(item.state))).slice(-10);
-} catch { undoStack = []; }
-function updateUndoBar() {
-  const bar = document.querySelector('#undo-bar');
-  if (!bar) return;
-  bar.hidden = undoStack.length === 0;
-  document.querySelector('#undo-message').textContent = undoStack.at(-1)?.label || '';
-}
-function undoLastChange() {
-  const item = undoStack.pop();
-  if (!item) return;
-  const restored = JSON.parse(item.state);
-  sessions = restored.sessions; extras = restored.extras || {}; notes = restored.notes || {};
-  activities = restored.activities || []; routines = restored.routines || {}; exerciseOrder = restored.exerciseOrder || {};
-  editingEntry = null; lastUndoGroup = null; activeEditGroup = null;
-  save('Last change undone.', false);
-  render();
-}
-function save(message = '', remember = true) {
-  const nextUndoState = undoState();
-  if (remember && nextUndoState !== previousUndoState) {
-    if (!activeEditGroup || activeEditGroup !== lastUndoGroup) {
-      undoStack.push({ state:previousUndoState, label:message || (sectionNames?.[tab] || 'Workout') + ' updated' });
-      undoStack = undoStack.slice(-10);
-    }
-    lastUndoGroup = activeEditGroup;
-  }
-  previousUndoState = nextUndoState;
+function save(message = '') {
   try {
     localStorage.setItem(storageKey, JSON.stringify({ version: 1, sessions, extras, notes, activities, routines, exerciseOrder, awards, favoriteAwards, awardDetails, showcaseTitle }));
-    localStorage.setItem(undoKey, JSON.stringify(undoStack));
-    updateUndoBar();
     status.textContent = message;
   } catch {
     status.textContent = 'Your browser could not save these changes. Export a backup before closing this page.';
@@ -253,7 +216,52 @@ document.querySelector('#rest-close').onclick = () => {
 };
 
 function exerciseIndexFor(set, index) {
-  return index < 12 ? Math.floor(index / 2) : set?.exerciseIndex;
+  return set?.exerciseIndex ?? (index < 12 ? Math.floor(index / 2) : undefined);
+}
+
+// Assign stable exercise identities before removing a row from legacy flat arrays.
+function deleteWorkoutSet(sets, index) {
+  sets.forEach((set, position) => { set.exerciseIndex = exerciseIndexFor(set, position); });
+  sets.splice(index, 1);
+}
+
+function enableSetDeletion(element, label, remove) {
+  element.tabIndex = 0;
+  element.setAttribute('aria-label', label + '. Swipe right or press Delete to delete this set.');
+  let origin;
+  let dragged = false;
+  const ask = () => {
+    const dialog=document.querySelector('#delete-set-dialog');
+    dialog.querySelector('p').textContent='Delete '+label+'? This removes this set from this workout.';
+    const confirm=dialog.querySelector('[data-confirm-delete-set]');
+    confirm.onclick=()=>{dialog.close();remove();};
+    dialog.showModal();
+    dialog.querySelector('[data-cancel-delete-set]').focus();
+  };
+  element.addEventListener('pointerdown', event => {
+    if (event.isPrimary === false || event.button !== 0) return;
+    origin = { x:event.clientX, y:event.clientY };
+    dragged = false;
+  });
+  element.addEventListener('pointermove', event => {
+    if (!origin) return;
+    const dx = event.clientX-origin.x, dy = event.clientY-origin.y;
+    if (Math.abs(dy)>30 && Math.abs(dy)>Math.abs(dx)) origin = null;
+    else if (dx>30 && dx>Math.abs(dy)*1.5) dragged = true;
+  });
+  element.addEventListener('pointerup', event => {
+    if (!origin) return;
+    const dx=event.clientX-origin.x,dy=event.clientY-origin.y;
+    origin=null;
+    if (dx>=70 && dx>Math.abs(dy)*1.5) { dragged=true; ask(); }
+  });
+  element.addEventListener('pointercancel', () => { origin=null; dragged=false; });
+  element.addEventListener('click', event => {
+    if (dragged) { event.preventDefault(); event.stopImmediatePropagation(); dragged=false; }
+  }, true);
+  element.addEventListener('keydown', event => {
+    if (event.target===element && event.key==='Delete') { event.preventDefault(); ask(); }
+  });
 }
 
 function setIndices(sets, exerciseIndex) {
@@ -312,7 +320,7 @@ function workout() {
     <div class="session"><div><h2>${weekday} Workout ${plan}</h2>
     <p id="set-total">${sets.filter(set => set.done).length} of 12 sets complete</p></div>
     <div class="date-controls"><label>Workout date<input type="date" id="date" value="${date}"></label><button id="today" ${date === today ? 'disabled' : ''}>Today</button></div></div>
-    <div class="workout-order-tools"><p>Move exercises up or down for this session.</p>${displayOrder.some((index,position)=>index!==position)?'<button type="button" id="reset-exercise-order">Reset exercise order</button>':''}</div>
+    <p class="set-delete-hint">Swipe right on a set to delete it. You’ll be asked to confirm.</p><div class="workout-order-tools"><p>Move exercises up or down for this session.</p>${displayOrder.some((index,position)=>index!==position)?'<button type="button" id="reset-exercise-order">Reset exercise order</button>':''}</div>
     ${displayOrder.map((exerciseIndex,position) => {
       let [id,name,weight,count,range,qualifier] = exercises[exerciseIndex];
       weight = targets[exerciseIndex];
@@ -327,12 +335,12 @@ function workout() {
       ${setIndices(sets, exerciseIndex).map((index, offset) => {
         const set = sets[index];
         const label = `${name}, set ${offset + 1}`;
-        return `<div class="set"><b>Set ${offset + 1}</b>
+        return `<div class="set" data-set-row="${index}"><b>Set ${offset + 1}</b>
           ${id === 'plank' ? `<button type="button" data-plank="${index}" aria-label="Start ${label}">Start</button>` : weight === null ? `<span>Bodyweight</span>` : `<label>lb${qualifier === 'each' ? ' each' : ''}<input type="number" min="0" step="any" inputmode="decimal" data-index="${index}" data-field="weight" aria-label="${label}, pounds" value="${set.weight}"></label>`}
           <label>${id === 'plank' ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${id === 'plank' ? 'seconds' : 'reps'}" value="${set.count}"></label>
           <button data-complete="${index}" aria-pressed="${set.done}" aria-label="${set.done ? 'Undo' : 'Complete'} ${label}">${set.done ? '✓ Completed' : 'Done'}</button></div>`;
-      }).join('')}<button class="add-set" data-add-set="${exerciseIndex}" aria-label="Add set for ${name}">+ Add set</button></div>
-      <div class="exercise-panel-controls"><button type="button" data-exercise-toggle="${exerciseIndex}" aria-controls="exercise-body-${exerciseIndex}">Hide sets</button></div>
+      }).join('')}</div>
+      <div class="exercise-panel-controls"><button class="add-set" data-add-set="${exerciseIndex}" aria-label="Add set for ${name}">+ Add set</button><button type="button" data-exercise-toggle="${exerciseIndex}" aria-controls="exercise-body-${exerciseIndex}">Hide sets</button></div>
 </section>`; }).join('')}`;
 
   const canReorder=()=>{if(view.querySelector('[data-plank][data-running="true"]')){status.textContent='Finish or stop the plank timer before moving exercises.';return false;}return true;};
@@ -352,12 +360,13 @@ function workout() {
   });
   function syncExercisePanels() {
     for(const panel of view.querySelectorAll('[data-exercise-panel]')) {
-      const index=Number(panel.dataset.exercisePanel), rows=exerciseSets(sets,index), complete=rows.every(set=>set.done);
+      const index=Number(panel.dataset.exercisePanel), rows=exerciseSets(sets,index), complete=rows.length>0 && rows.every(set=>set.done);
       if(panel.dataset.panelComplete!==undefined && (panel.dataset.panelComplete==='true')!==complete)expandedExercisePanels.delete(key+':'+index);
       panel.dataset.panelComplete=String(complete);
       const open=expandedExercisePanels.get(key+':'+index) ?? !complete;
       const button=panel.querySelector('[data-exercise-toggle]');button.setAttribute('aria-expanded',open);button.textContent=open?'Hide':'Show';button.setAttribute('aria-label',(open?'Hide':'Show')+' sets for '+exercises[index][1]);
       const body=panel.querySelector('.exercise-panel-body');
+      panel.querySelector('[data-add-set]').hidden=!open;
       const hidingActive=!open&&body.contains(document.activeElement);body.hidden=!open;
       panel.querySelector('[data-exercise-summary]').textContent=rows.filter(set=>set.done).length+' / '+rows.length+' sets complete'+(complete?' · Finished':'');
       if(hidingActive)button.focus({preventScroll:true});
@@ -404,10 +413,21 @@ function workout() {
     };
   });
 
+  view.querySelectorAll('[data-set-row]').forEach(row => {
+    const index=Number(row.dataset.setRow), exercise=exerciseIndexFor(sets[index],index);
+    const number=setIndices(sets,exercise).indexOf(index)+1;
+    enableSetDeletion(row, exercises[exercise][1]+', set '+number, () => {
+      deleteWorkoutSet(sets,index); sessions[key]=sets;
+      routines[key] ||= structuredClone(exercises);
+      expandedExercisePanels.set(key+':'+exercise,true);
+      save('Set deleted.'); render();
+    });
+  });
+
   view.querySelectorAll('[data-add-set]').forEach(button => button.onclick = () => {
     const exerciseIndex = Number(button.dataset.addSet);
     const [, , weight, count] = exercises[exerciseIndex];
-    const previous = exerciseSets(sets, exerciseIndex).at(-1);
+    const previous = exerciseSets(sets, exerciseIndex).at(-1) || {weight,count,unit:exercises[exerciseIndex][0]==='plank'?'sec':'reps'};
     sets.push({ exerciseIndex, weight: previous.weight === '' ? weight : previous.weight,
       count: previous.count === '' ? count : previous.count, unit: previous.unit, done: false });
     sessions[key] = sets;
@@ -495,6 +515,10 @@ function workout() {
           }
         };
         refresh();
+        enableSetDeletion(line,row.name+', set '+(offset+1),()=>{
+          actualSets(row).splice(offset,1);row.sets=row.actual.length;
+          expandedCustomPanels.set(row,true);save('Set deleted.');showExtras();
+        });
         item.append(line);
       });
       const add = document.createElement('button');
@@ -504,14 +528,14 @@ function workout() {
       add.disabled = row.sets >= 99;
       add.onclick = () => {
         const actual = actualSets(row);
-        const { weight, count } = actual.at(-1);
+        const { weight, count } = actual.at(-1) || {weight:null,count:row.reps};
         actual.push({ weight, count, done: false });
         row.sets = actual.length;
         save();
         showExtras();
         list.children[index].querySelector('.set:last-of-type input[required]').focus();
       };
-      item.append(add);
+
       const remove = document.createElement('button');
       remove.textContent = 'Remove';
       remove.setAttribute('aria-label', 'Remove ' + row.name);
@@ -527,14 +551,14 @@ function workout() {
       body.append(...[...item.children].slice(1));
       const summary=document.createElement('p');summary.className='exercise-completion';
       const controls=document.createElement('div');controls.className='exercise-panel-controls';
-      const toggle=document.createElement('button');toggle.type='button';toggle.setAttribute('aria-controls',body.id);controls.append(toggle);
+      const toggle=document.createElement('button');toggle.type='button';toggle.setAttribute('aria-controls',body.id);controls.append(add,toggle);
       const moveControls=document.createElement('div');moveControls.className='exercise-order-controls';
       for(const [direction,label] of [[-1,'up'],[1,'down']]) {
         const move=document.createElement('button');move.type='button';move.textContent=direction<0?'↑':'↓';move.title='Move '+label;move.setAttribute('aria-label','Move '+row.name+' '+label);move.disabled=index+direction<0||index+direction>=(extras[key]||[]).length;
         move.onclick=()=>{const rows=extras[key];[rows[index],rows[index+direction]]=[rows[index+direction],rows[index]];save('Custom exercise order updated.');showExtras();list.children[index+direction].querySelector('.exercise-panel-controls button').focus();};moveControls.append(move);
       }
-      let wasComplete=actualSets(row).every(set=>set.done);
-      const sync=()=>{const rows=actualSets(row),complete=rows.every(set=>set.done);if(complete!==wasComplete)expandedCustomPanels.delete(row);wasComplete=complete;const open=expandedCustomPanels.get(row) ?? !complete;const hidingActive=!open&&body.contains(document.activeElement);body.hidden=!open;toggle.textContent=open?'Hide':'Show';toggle.setAttribute('aria-expanded',open);toggle.setAttribute('aria-label',(open?'Hide':'Show')+' sets for '+row.name);summary.textContent=rows.filter(set=>set.done).length+' / '+rows.length+' sets complete'+(complete?' · Finished':'');if(hidingActive)toggle.focus({preventScroll:true});};
+      let wasComplete=actualSets(row).length>0 && actualSets(row).every(set=>set.done);
+      const sync=()=>{const rows=actualSets(row),complete=rows.length>0 && rows.every(set=>set.done);if(complete!==wasComplete)expandedCustomPanels.delete(row);wasComplete=complete;const open=expandedCustomPanels.get(row) ?? !complete;const hidingActive=!open&&body.contains(document.activeElement);body.hidden=!open;add.hidden=!open;toggle.textContent=open?'Hide':'Show';toggle.setAttribute('aria-expanded',open);toggle.setAttribute('aria-label',(open?'Hide':'Show')+' sets for '+row.name);summary.textContent=rows.filter(set=>set.done).length+' / '+rows.length+' sets complete'+(complete?' · Finished':'');if(hidingActive)toggle.focus({preventScroll:true});};
       toggle.onclick=()=>{expandedCustomPanels.set(row,toggle.getAttribute('aria-expanded')!=='true');sync();};
       extraPanelSync.push(sync);sync();
       const header=document.createElement('div');header.className='exercise-title exercise-card-header';
@@ -1047,7 +1071,6 @@ function activityProgress(showTitle = true) {
 }
 
 view.addEventListener('focusin', event => {
-  activeEditGroup = event.target.matches('input, textarea') ? event.target : null;
   const input = event.target;
   if (!input.matches('input[type="number"]') || input.value === '') return;
   const previous = input.value;
@@ -1062,7 +1085,7 @@ view.addEventListener('focusin', event => {
   input.addEventListener('blur', restore, { once: true });
 });
 
-view.addEventListener('focusout', () => { activeEditGroup = null; });
+
 
 function render() {
   updateShowcaseTitle();
@@ -1119,8 +1142,7 @@ async function rotateVerse() {
   verseAnimation = verse.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 230 });
 }
 
-document.querySelector('#undo-last').onclick = undoLastChange;
-updateUndoBar();
+
 
 document.querySelector('#today-tab').onclick = () => openMainTab('today');
 

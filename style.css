@@ -616,3 +616,19 @@ header #showcase-title { text-transform:none; letter-spacing:.04em; color:#ffd97
 /* Keep the exercise collapse control separate from set actions. */
 .exercise-panel-controls { justify-content:flex-end; margin:14px 0 0; }
 .exercise-panel-controls button { width:auto; min-width:64px; min-height:44px; padding:8px 14px; font-size:.8rem; }
+
+/* Shared footer: add on the left, collapse on the right. */
+.exercise-panel-controls { align-items:center; justify-content:space-between; }
+.exercise-panel-controls > :last-child { margin-left:auto; }
+.exercise-panel-controls .add-set { margin:0; }
+.set { touch-action:pan-y; }
+.set:focus-visible { outline:2px solid #ef7777; outline-offset:3px; }
+.set-delete-hint { font-size:.85rem; color:var(--muted,#d0b7b7); text-align:center; }
+/* Small, borderless reorder arrows. */
+.exercise-order-controls button { width:22px; min-width:22px; height:22px; min-height:22px; font-size:.75rem; border:0; border-radius:0; box-shadow:none; clip-path:none; background:none; }
+.exercise-order-controls button::before, .exercise-order-controls button::after { display:none; }
+.exercise-card-header .exercise-order-controls { gap:3px; }
+
+#delete-set-dialog { width:min(90vw,420px); }
+.delete-set-actions { display:flex; justify-content:space-between; gap:16px; }
+.delete-set-actions form { margin:0; }
