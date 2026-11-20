@@ -173,18 +173,23 @@ function checkAchievements(celebrate = false, context = null) {
 }
 let displayedAward = null;
 function showAward(award) {
-  if (!award || !awards[award.id]) return;
+  if (!award || (!awards[award.id] && !award.known)) return;
+  const unlocked=Boolean(awards[award.id]);
   displayedAward = award;
   const popup = document.querySelector('#award-popup');
   const content = document.querySelector('#award-content');
-  content.classList.toggle('super-celebration',isSuperBadge(award));
-  content.innerHTML = `<p>${badgeTierName(award)} achievement unlocked</p>${badgeArt(award)}<h2 id="award-heading">${award.name}</h2><p class="badge-reason">${achievementDescription(award)}</p>`;
+  content.classList.toggle('super-celebration',unlocked && isSuperBadge(award));
+  content.classList.toggle('goal-preview',!unlocked);
+  content.innerHTML = `<p>${unlocked ? badgeTierName(award)+' achievement unlocked' : 'Achievement goal'}</p>${badgeArt(award)}<h2 id="award-heading">${award.name}</h2><p class="badge-reason">${achievementDescription(award,unlocked)}</p>${unlocked?'':'<p>'+Number(Math.min(achievementStats()[award.metric],award.target).toFixed(1))+' / '+award.target+' '+metricLabels[award.metric]+'</p>'}`;
   updateAwardFavorite();
   if (!popup.open) popup.showModal();
 }
 function updateAwardFavorite() {
   const button = document.querySelector('#award-favorite');
   if (!displayedAward) return;
+  const unlocked=Boolean(awards[displayedAward.id]);
+  button.hidden=!unlocked;document.querySelector('#award-title').hidden=!unlocked;
+  if(!unlocked){document.querySelector('#award-favorite-hint').textContent='';return;}
   const chosen = favoriteAwards.includes(displayedAward.id);
   button.textContent = chosen ? '★ Remove favorite' : '☆ Add to favorites';
   button.setAttribute('aria-pressed', chosen);
@@ -206,7 +211,7 @@ function toggleDisplayedFavorite() {
 }
 function replayAchievement(id) {
   const award = achievementList.find(item => item.id === id);
-  if (!award || !awards[id] || document.querySelector('#award-popup').open) return;
+  if (!award || (!awards[id] && !award.known) || document.querySelector('#award-popup').open) return;
   showAward(award);
 }
 function showNextAward() {
@@ -239,10 +244,14 @@ function renderAchievements() {
       const card=document.createElement('section');card.className='award-card'+(awards[a.id]?' unlocked':'')+(awards[a.id] && a.tier==='challenge'?' challenge-unlocked':'')+(awards[a.id] && isGreenFlame(a)?' green-unlocked':'')+(awards[a.id] && isSuperBadge(a)?' super-unlocked':'');
       if (!a.known && !awards[a.id]) card.innerHTML=`<div class="badge-art-slot"><div class="locked-badge" aria-hidden="true">?</div></div><h4 class="badge-name">#${achievementList.filter(item=>!item.known).findIndex(item=>item.id===a.id)+1}</h4><p class="badge-reason"></p><p class="badge-status">Locked</p>`;
       else { card.innerHTML=`<div class="badge-art-slot">${badgeArt(a)}</div>`; const name=document.createElement('h4');name.className='badge-name';name.textContent=a.name;card.append(name);const reason=document.createElement('p');reason.className='badge-reason';reason.textContent=achievementDescription(a,Boolean(awards[a.id]));card.append(reason);const detail=document.createElement('p');detail.className='badge-status';detail.textContent=awards[a.id]?'Unlocked · '+new Date(awards[a.id]).toLocaleDateString(): Math.min(stats[a.metric],a.target).toFixed(a.metric==='miles'?1:0)+' / '+a.target+' '+metricLabels[a.metric];if (awards[a.id] && (a.tier==='challenge' || isSuperBadge(a))) detail.textContent=badgeTierName(a)+' · '+detail.textContent;card.append(detail); }
-      if (awards[a.id]) {
-        const art = card.querySelector('.badge-art-slot');
-        const replay = document.createElement('button');replay.type='button';replay.className='badge-replay';replay.dataset.replayAchievement=a.id;replay.setAttribute('aria-label','View '+a.name+' badge');replay.title='View badge animation';
+      card.querySelector('.badge-status').dataset.compact=awards[a.id]?'Unlocked':a.known?Number(Math.min(stats[a.metric],a.target).toFixed(1))+' / '+a.target:'Locked';
+      if (awards[a.id] || a.known) {
+        const art=card.querySelector('.badge-art-slot');
+        const replay=document.createElement('button');replay.type='button';replay.className='badge-replay';replay.dataset.replayAchievement=a.id;replay.setAttribute('aria-label','View '+a.name+' badge');replay.title=awards[a.id]?'View badge animation':'View achievement goal';
         replay.append(...art.childNodes);art.append(replay);
+        card.onclick=event=>{if(!event.target.closest('button'))replayAchievement(a.id);};
+      }
+      if (awards[a.id]) {
         if (favoriteAwards.includes(a.id)) {
           const star=document.createElement('span');star.className='favorite-marker';star.textContent='★';star.setAttribute('role','img');star.setAttribute('aria-label','Favorite');card.append(star);
         }

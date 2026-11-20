@@ -17,7 +17,7 @@ A mobile-first, locally saved workout and activity tracker with a black-and-red 
 
 175 achievements include visible goals and hidden mysteries, personal-record improvements, three-workout weeks, and balanced weeks with a run. First dated results establish PR baselines. Qualifying weeks do not need to be consecutive. A full workout completes both original sets of all six planned exercises; extra sets are optional.
 
-Gold, Blue Flame, Green Flame, and Super badges have distinct artwork and celebrations. Mystery requirements stay hidden until earned. All unfinished visible goals use red progress bars. Tap an unlocked badge to view its celebration, choose up to three favorites, or use its name as a showcase title. Favorites have a corner star. Animations respect the device’s Reduce Motion preference.
+Gold, Blue Flame, Green Flame, and Super badges have distinct artwork and celebrations. Mystery requirements stay hidden until earned. All unfinished visible goals use red progress bars. Phone screens show four compact badge cards per row; tap a known goal for its full description and progress. Mystery goals remain hidden. Tap an unlocked badge to view its celebration, choose up to three favorites, or use its name as a showcase title. Favorites have a corner star. Animations respect the device’s Reduce Motion preference.
 
 Almost There shows the three closest known goals. The achievement timeline scrolls horizontally from oldest to newest, with Earlier/Later controls and swipe/keyboard support. New unlocks retain their triggering activity; older badges explain when the original activity was not recorded.
 

@@ -580,3 +580,25 @@ header #showcase-title { text-transform:none; letter-spacing:.04em; color:#ffd97
 .sauna-distance-chart { display:block; width:100%; height:auto; margin:12px 0; }
 .sauna-stats { margin:12px 0; }
 .sauna-stats .stat { text-align:center; min-width:0; }
+
+#award-content.goal-preview { animation:none; }
+/* Four compact badges per phone row; full descriptions open on tap. */
+@media(max-width:649px) {
+  .award-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+  .award-card { padding:5px 4px; gap:4px; grid-template-rows:84px var(--badge-name-height,4rem) 16px 24px; }
+  .award-card .badge-art-slot { height:84px; --badge-art-height:84px; }
+  .award-card .award-badge { width:52px; height:58px; }
+  .award-card .award-badge.challenge-earned { width:58px; height:64px; }
+  .award-card .award-badge.green-earned { width:64px; height:70px; }
+  .award-card .award-badge.super-earned { width:70px; height:78px; max-width:calc(100% + 6px); }
+  .award-card .locked-badge { width:42px; height:48px; font-size:1.5rem; }
+  .award-card .badge-name { font-size:.75rem; line-height:1.25; }
+  .award-card .badge-reason { display:none; }
+  .award-card .badge-status { font-size:0; line-height:0; }
+  .award-card .badge-status::after { content:attr(data-compact); font-size:.625rem; line-height:1.3; }
+  .award-card .badge-action-space, .award-card .badge-progress-slot { height:24px; min-height:24px; }
+  .award-card .badge-progress-slot { gap:3px; }
+  .award-card .badge-progress-track { height:6px; }
+  .award-card .badge-progress-slot small { font-size:.625rem; line-height:1; }
+  .award-card .favorite-marker { top:5px; right:5px; font-size:.75rem; }
+}
