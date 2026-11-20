@@ -320,15 +320,10 @@ function workout() {
       return `
       <section class="card exercise-panel" data-exercise-panel="${exerciseIndex}"><div class="exercise-title exercise-card-header"><div class="exercise-order-controls"><button type="button" data-move-exercise="${exerciseIndex}" data-direction="-1" aria-label="Move ${name} up" ${position===0?'disabled':''} title="Move up"><span aria-hidden="true">↑</span></button><button type="button" data-move-exercise="${exerciseIndex}" data-direction="1" aria-label="Move ${name} down" ${position===5?'disabled':''} title="Move down"><span aria-hidden="true">↓</span></button></div><h3>${name}</h3><a href="#form-${id}" data-guide="${id}" aria-label="How to do ${name}">How to <span aria-hidden="true">↗</span></a></div>
       <p class="exercise-completion" data-exercise-summary="${exerciseIndex}"></p>
-      <div class="exercise-panel-controls"><button type="button" data-exercise-toggle="${exerciseIndex}" aria-controls="exercise-body-${exerciseIndex}">Hide sets</button></div>
       <div class="exercise-panel-body" id="exercise-body-${exerciseIndex}">
       <p><strong>Target</strong> · ${weight === null ? 'Bodyweight' : weight + ' lb' + (qualifier ? ' ' + qualifier : '')}
       · 2 × ${range || count}${id === 'plank' ? ' sec' : ' reps'}</p>
-      <button type="button" class="swap-exercise" data-swap="${exerciseIndex}" ${exerciseSets(sets,exerciseIndex).some(set=>set.done) ? 'disabled' : ''}>Swap exercise</button>
-      ${exerciseSets(sets,exerciseIndex).some(set=>set.done) ? '<p class="swap-hint">To switch after logging a set, add a custom exercise below.</p>' : ''}
-      ${id !== program[plan].exercises[exerciseIndex][0] ? '<p class="swap-hint">Swapped for this session only.</p>' : ''}
-      ${last.length ? `<p class="last-time"><strong>Last time</strong><br>${last.map(set => set.label).join('<br>')}</p>
-        <button class="copy-last" data-copy="${exerciseIndex}" aria-label="Copy last session for ${name}">Copy last session</button>` : ''}
+      ${last.length ? `<p class="last-time"><strong>Last time</strong><br>${last.map(set => set.label).join('<br>')}</p>` : ''}
       ${setIndices(sets, exerciseIndex).map((index, offset) => {
         const set = sets[index];
         const label = `${name}, set ${offset + 1}`;
@@ -336,7 +331,9 @@ function workout() {
           ${id === 'plank' ? `<button type="button" data-plank="${index}" aria-label="Start ${label}">Start</button>` : weight === null ? `<span>Bodyweight</span>` : `<label>lb${qualifier === 'each' ? ' each' : ''}<input type="number" min="0" step="any" inputmode="decimal" data-index="${index}" data-field="weight" aria-label="${label}, pounds" value="${set.weight}"></label>`}
           <label>${id === 'plank' ? 'Seconds' : 'Reps'}<input type="number" min="1" step="1" inputmode="numeric" data-index="${index}" data-field="count" aria-label="${label}, ${id === 'plank' ? 'seconds' : 'reps'}" value="${set.count}"></label>
           <button data-complete="${index}" aria-pressed="${set.done}" aria-label="${set.done ? 'Undo' : 'Complete'} ${label}">${set.done ? '✓ Completed' : 'Done'}</button></div>`;
-      }).join('')}<button class="add-set" data-add-set="${exerciseIndex}" aria-label="Add set for ${name}">+ Add set</button></div></section>`; }).join('')}`;
+      }).join('')}<button class="add-set" data-add-set="${exerciseIndex}" aria-label="Add set for ${name}">+ Add set</button></div>
+      <div class="exercise-panel-controls"><button type="button" data-exercise-toggle="${exerciseIndex}" aria-controls="exercise-body-${exerciseIndex}">Hide sets</button></div>
+</section>`; }).join('')}`;
 
   const canReorder=()=>{if(view.querySelector('[data-plank][data-running="true"]')){status.textContent='Finish or stop the plank timer before moving exercises.';return false;}return true;};
   view.querySelectorAll('[data-move-exercise]').forEach(button=>button.onclick=()=>{
@@ -356,10 +353,10 @@ function workout() {
   function syncExercisePanels() {
     for(const panel of view.querySelectorAll('[data-exercise-panel]')) {
       const index=Number(panel.dataset.exercisePanel), rows=exerciseSets(sets,index), complete=rows.every(set=>set.done);
-      if(panel.dataset.complete!==undefined && (panel.dataset.complete==='true')!==complete)expandedExercisePanels.delete(key+':'+index);
-      panel.dataset.complete=String(complete);
+      if(panel.dataset.panelComplete!==undefined && (panel.dataset.panelComplete==='true')!==complete)expandedExercisePanels.delete(key+':'+index);
+      panel.dataset.panelComplete=String(complete);
       const open=expandedExercisePanels.get(key+':'+index) ?? !complete;
-      const button=panel.querySelector('[data-exercise-toggle]');button.setAttribute('aria-expanded',open);button.textContent=open?'Hide sets':'Show sets';button.setAttribute('aria-label',(open?'Hide':'Show')+' sets for '+exercises[index][1]);
+      const button=panel.querySelector('[data-exercise-toggle]');button.setAttribute('aria-expanded',open);button.textContent=open?'Hide':'Show';button.setAttribute('aria-label',(open?'Hide':'Show')+' sets for '+exercises[index][1]);
       const body=panel.querySelector('.exercise-panel-body');
       const hidingActive=!open&&body.contains(document.activeElement);body.hidden=!open;
       panel.querySelector('[data-exercise-summary]').textContent=rows.filter(set=>set.done).length+' / '+rows.length+' sets complete'+(complete?' · Finished':'');
@@ -367,27 +364,6 @@ function workout() {
     }
     extraPanelSync.forEach(sync=>sync());
   }
-
-  view.querySelectorAll('[data-swap]').forEach(button => button.onclick = () => {
-    const index = Number(button.dataset.swap);
-    const dialog = document.querySelector('#swap-dialog');
-    const select = dialog.querySelector('select');
-    select.replaceChildren();
-    const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Choose a replacement';placeholder.disabled=true;placeholder.selected=true;select.append(placeholder);
-    const confirmSwap=dialog.querySelector('#confirm-swap');confirmSwap.disabled=true;select.onchange=()=>{confirmSwap.disabled=!select.value;};
-    for (const row of exerciseCatalog.filter(row => row[0] !== exercises[index][0])) {
-      const option = document.createElement('option');option.value=row[0];option.textContent=row[1];select.append(option);
-    }
-    const restore = document.createElement('option');restore.value='program';restore.textContent='Restore program exercise: '+program[plan].exercises[index][1];select.append(restore);
-    dialog.querySelector('#swap-heading').textContent='Swap '+exercises[index][1];
-    dialog.querySelector('#confirm-swap').onclick=()=>{
-      const replacement=select.value==='program'?program[plan].exercises[index]:exerciseCatalog.find(row=>row[0]===select.value);
-      if (!replacement || !swapSessionExercise(key,sets,index,replacement)) return;
-      dialog.close();save('Exercise swapped for this session.');render();
-      view.querySelector('[data-swap="'+index+'"]').focus();
-    };
-    dialog.showModal();
-  });
 
   let plankInterval;
   const stopPlank = () => clearInterval(plankInterval);
@@ -441,28 +417,6 @@ function workout() {
     view.querySelector(`[data-index="${sets.length - 1}"]`).focus();
   });
 
-  view.querySelectorAll('[data-copy]').forEach(button => {
-    const exerciseIndex = Number(button.dataset.copy);
-    const [id] = exercises[exerciseIndex];
-    const previous = lastTime(id);
-    const indices = setIndices(sets, exerciseIndex);
-    const candidates = () => previous.filter(set => sets[indices[set.offset]]?.done === false);
-    button.onclick = () => {
-      for (const { offset, weight, count } of candidates()) {
-        const index = indices[offset];
-        Object.assign(sets[index], { weight, count });
-        view.querySelectorAll(`[data-index="${index}"]`).forEach(input => {
-          input.value = sets[index][input.dataset.field];
-        });
-      }
-      sessions[key] = sets;
-    routines[key] ||= structuredClone(exercises);
-      save('Copied your previous sets.');
-      button.textContent = 'Copied';
-    };
-    button.disabled = !candidates().length;
-  });
-
   view.insertAdjacentHTML('beforeend', `<section class="card"><h3>Custom exercises</h3>
     <div id="extra-list"></div>
     <button type="button" id="open-extra" aria-expanded="false" aria-controls="extra-form">Add custom exercise</button>
@@ -498,27 +452,6 @@ function workout() {
           .flatMap(extra => actualSets(extra).flatMap((set, i) => set.done
             ? ['Set ' + (i + 1) + ' · ' + extraSetLabel(set)] : [])).join(' / ');
         item.append(previous);
-        const source = (extras[earlier.key] || []).find(extra =>
-          sameExercise(extra.name, row.name) && actualSets(extra).some(set => set.done));
-        const copy = document.createElement('button');
-        copy.className = 'copy-last';
-        copy.textContent = 'Copy last session';
-        copy.setAttribute('aria-label', 'Copy last session for ' + row.name);
-        const candidates = () => actualSets(row).flatMap((set, i) =>
-          !set.done && actualSets(source)[i]?.done ? [i] : []);
-        copy.disabled = !candidates().length;
-        copy.onclick = () => {
-          for (const i of candidates()) {
-            const { weight, count } = actualSets(source)[i];
-            Object.assign(actualSets(row)[i], { weight, count });
-            const [weightInput, countInput] = item.querySelectorAll('.set')[i].querySelectorAll('input');
-            weightInput.value = weight ?? '';
-            countInput.value = count;
-          }
-          save('Copied your previous sets.');
-          copy.textContent = 'Copied';
-        };
-        item.append(copy);
 
       }
       actualSets(row).forEach((set, offset) => {
@@ -601,13 +534,13 @@ function workout() {
         move.onclick=()=>{const rows=extras[key];[rows[index],rows[index+direction]]=[rows[index+direction],rows[index]];save('Custom exercise order updated.');showExtras();list.children[index+direction].querySelector('.exercise-panel-controls button').focus();};moveControls.append(move);
       }
       let wasComplete=actualSets(row).every(set=>set.done);
-      const sync=()=>{const rows=actualSets(row),complete=rows.every(set=>set.done);if(complete!==wasComplete)expandedCustomPanels.delete(row);wasComplete=complete;const open=expandedCustomPanels.get(row) ?? !complete;const hidingActive=!open&&body.contains(document.activeElement);body.hidden=!open;toggle.textContent=open?'Hide sets':'Show sets';toggle.setAttribute('aria-expanded',open);toggle.setAttribute('aria-label',(open?'Hide':'Show')+' sets for '+row.name);summary.textContent=rows.filter(set=>set.done).length+' / '+rows.length+' sets complete'+(complete?' · Finished':'');if(hidingActive)toggle.focus({preventScroll:true});};
+      const sync=()=>{const rows=actualSets(row),complete=rows.every(set=>set.done);if(complete!==wasComplete)expandedCustomPanels.delete(row);wasComplete=complete;const open=expandedCustomPanels.get(row) ?? !complete;const hidingActive=!open&&body.contains(document.activeElement);body.hidden=!open;toggle.textContent=open?'Hide':'Show';toggle.setAttribute('aria-expanded',open);toggle.setAttribute('aria-label',(open?'Hide':'Show')+' sets for '+row.name);summary.textContent=rows.filter(set=>set.done).length+' / '+rows.length+' sets complete'+(complete?' · Finished':'');if(hidingActive)toggle.focus({preventScroll:true});};
       toggle.onclick=()=>{expandedCustomPanels.set(row,toggle.getAttribute('aria-expanded')!=='true');sync();};
       extraPanelSync.push(sync);sync();
       const header=document.createElement('div');header.className='exercise-title exercise-card-header';
       const guide=document.createElement('a');guide.textContent='How to ↗';guide.href='https://www.youtube.com/results?search_query='+encodeURIComponent(row.name+' proper form demonstration');guide.target='_blank';guide.rel='noopener noreferrer';guide.title='Search YouTube';guide.setAttribute('aria-label','Find how to do '+row.name+' on YouTube');
       header.append(moveControls,title,guide);item.prepend(header);
-      item.append(summary,controls,body);
+      item.append(summary,body,controls);
       list.append(item);
     });
     refreshCompletion();
@@ -712,11 +645,6 @@ function workout() {
       button.setAttribute('aria-label', (done ? 'Undo ' : 'Complete ') + name + ', set ' + (setIndices(sets, exerciseIndexFor(sets[index], index)).indexOf(index) + 1));
       button.textContent = done ? '✓ Completed' : 'Done';
     }
-    view.querySelectorAll('[data-copy]').forEach(button => {
-      const index = Number(button.dataset.copy);
-      button.disabled = !lastTime(exercises[index][0]).some(set => exerciseSets(sets, index)[set.offset]?.done === false);
-      button.textContent = 'Copy last session';
-    });
     view.querySelectorAll('[data-plank]').forEach(button => { button.disabled = sets[button.dataset.plank].done; });
     const next = buttons.find(button => button.getAttribute('aria-pressed') === 'false');
     for (const button of buttons) button.closest('.set').classList.toggle('next-set', button === next);

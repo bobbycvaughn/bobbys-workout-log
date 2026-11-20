@@ -612,3 +612,7 @@ header #showcase-title { text-transform:none; letter-spacing:.04em; color:#ffd97
   .award-card .badge-progress-slot small { display:none; }
   .award-card .badge-progress-slot { gap:0; }
 }
+
+/* Keep the exercise collapse control separate from set actions. */
+.exercise-panel-controls { justify-content:flex-end; margin:14px 0 0; }
+.exercise-panel-controls button { width:auto; min-width:64px; min-height:44px; padding:8px 14px; font-size:.8rem; }
