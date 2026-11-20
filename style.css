@@ -602,3 +602,13 @@ header #showcase-title { text-transform:none; letter-spacing:.04em; color:#ffd97
   .award-card .badge-progress-slot small { font-size:.625rem; line-height:1; }
   .award-card .favorite-marker { top:5px; right:5px; font-size:.75rem; }
 }
+
+/* Tight phone cards remove spare space while keeping four equal columns. */
+@media(max-width:649px) {
+  .award-card { padding:4px; gap:3px; grid-template-rows:72px var(--badge-name-height,2.8125rem) 14px 12px; }
+  .award-card .badge-art-slot { height:72px; --badge-art-height:72px; }
+  .award-card .badge-name { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; max-height:3.75em; }
+  .award-card .badge-action-space, .award-card .badge-progress-slot { height:12px; min-height:12px; }
+  .award-card .badge-progress-slot small { display:none; }
+  .award-card .badge-progress-slot { gap:0; }
+}
