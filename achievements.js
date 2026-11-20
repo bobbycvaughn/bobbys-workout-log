@@ -72,10 +72,31 @@ mysteryChallenges.forEach(([name,metric,target,category])=>addAchievement(name,m
  ['Week of Resolve','completeWeeks',1,'workouts'], ['Four Weeks Forged','completeWeeks',4,'workouts'], ['Twelve Week Testament','completeWeeks',12,'workouts'],
  ['Strength Meets Stride','balancedWeeks',1,'runs'], ['Four Weeks in Balance','balancedWeeks',4,'runs'], ['The Complete Journey','balancedWeeks',12,'runs'],
 ].forEach(([name,metric,target,category])=>addAchievement(name,metric,target,true,category));
+// Append streak badges: existing achievement IDs and saved unlocks stay unchanged.
+const streakTracks = [
+  ['streakWorkoutWeeks','workouts','at least 1 full workout on a distinct day each week',['Ember Continuum','Iron Thread','The Returning Flame','Unbroken Forge','Eternal Anvil']],
+  ['streakFullWeeks','workouts','3 full workouts on different days each week',['Twin Pillars','Fourfold Covenant','Eightfold Iron','The Twelvefold Forge','Half Year of Steel']],
+  ['streakRunWeeks','runs','at least 1 run each week',['Footprints in Fire','Roadbound Resolve','The Steady Horizon','Twelve Roads Unbroken','The Endless Road']],
+  ['streakDoubleRunWeeks','runs','runs on at least 2 different days each week',['Paired Strides','Double Tempo','The Eight Week Cadence','Twin Trail Testament','Half Year Roadkeeper']],
+  ['streakWalkWeeks','runs','at least 1 walk each week',['Quiet Footsteps','Walking Through Ember','The Patient Path','Twelve Weeks Wandering','The Long Walk Home']],
+  ['streakSaunaWeeks','sauna','at least 1 sauna entry each week, regardless of time or temperature',['Ember Appointment','Four Fireside Returns','The Steady Retreat','Sanctuary Rhythm','Seasons of Stillness']],
+  ['streakWeightWeeks','weight','a body-weight entry on at least 1 day each week, regardless of the weight',['The Weekly Witness','Four Chapters of Insight','Eight Windows','The Quarter Year Chronicle','Half Year Mirror']],
+  ['streakBalancedWeeks','workouts','3 full workouts on different days and at least 1 run each week',['Iron and Road','Balanced Covenant','Eight Weeks in Harmony','The Unbroken Balance','The Complete Half Year']],
+  ['streakMovementWeeks','sets','a completed workout set, run, walk, or mixed activity on at least 2 different days each week',['Two Days Returning','The Moving Thread','Eight Weeks in Motion','The Living Rhythm','Seasons in Motion']],
+  ['streakWeightDays','weight','a body-weight entry every day, regardless of the weight',['Three Dawn Witness','Seven Day Chronicle','Fortnight Reflection','Thirty Day Mirror','Sixty Day Sentinel']],
+];
+streakTracks.forEach(([metric,category,goal,names])=>{
+  const targets=metric==='streakWeightDays'?[3,7,14,30,60]:[2,4,8,12,26];
+  targets.forEach((target,index)=>{
+    addAchievement(names[index],metric,target,false,category,index>=2?'challenge':'standard');
+    Object.assign(achievementList.at(-1),{streak:true,difficulty:index+1,streakGoal:goal,streakUnit:metric==='streakWeightDays'?'days':'weeks'});
+  });
+});
 function isSuperBadge(achievement) {
-  return achievement.target === 1000 && ['workouts','sets','curlReps','legReps','pressReps','pullReps','runs','miles','weightDays'].includes(achievement.metric);
+  return achievement.streak && achievement.difficulty===5 || achievement.target === 1000 && ['workouts','sets','curlReps','legReps','pressReps','pullReps','runs','miles','weightDays'].includes(achievement.metric);
 }
 function isGreenFlame(achievement) {
+  if(achievement.streak)return achievement.difficulty===4;
   if (achievement.tier !== 'challenge') return false;
   const thresholds = {workouts:250,runs:300,miles:750,weightDays:365,sets:950,curlReps:950,legReps:950,pressReps:950,pullReps:950};
   return thresholds[achievement.metric] !== undefined && achievement.target >= thresholds[achievement.metric];
@@ -95,6 +116,7 @@ const badgeDifficultyThresholds = {
   completeWeeks:[2,4,8,12], balancedWeeks:[2,4,8,12],
 };
 function badgeDifficulty(achievement) {
+  if(achievement.streak)return achievement.difficulty;
   const thresholds=badgeDifficultyThresholds[achievement.metric] || [10,50,100,1000];
   const effort=1+thresholds.filter(target=>achievement.target>=target).length;
   const tier=isSuperBadge(achievement)?5:isGreenFlame(achievement)?4:achievement.tier==='challenge'?3:1;
@@ -109,6 +131,7 @@ function badgeDifficultyLabel(achievement) {
 }
 function achievementDescription(achievement, unlocked = true) {
   const n = achievement.target;
+  if(achievement.streak)return `${unlocked?'Met':'Meet'} this goal for ${n} consecutive ${achievement.streakUnit}: ${achievement.streakGoal}. A missed ${achievement.streakUnit==='days'?'day':'week'} breaks the streak. Earned badges stay unlocked.`;
   const plural = (singular, multiple) => n === 1 ? singular : multiple;
   const descriptions = {
     weightRecords: `${unlocked ? 'Improved' : 'Improve'} your best logged exercise weight ${n} ${plural('time','times')}. Your first dated result establishes the baseline.`,
@@ -131,6 +154,7 @@ function achievementDescription(achievement, unlocked = true) {
   return descriptions[achievement.metric];
 }
 const metricLabels = { weightRecords:'weight record improvements', repRecords:'rep record improvements', distanceRecords:'running distance improvements', completeWeeks:'three-workout weeks', balancedWeeks:'balanced weeks', workouts:'complete workouts', sets:'completed sets', curlReps:'total biceps curl reps', legReps:'total leg press / squat reps', pressReps:'total chest / shoulder press reps', pullReps:'total row / pulldown reps', runs:'runs logged', miles:'total running miles', sauna:'sauna visits', weighins:'weigh-ins', weightDays:'different days with a weigh-in' };
+for(const [metric] of streakTracks)metricLabels[metric]=metric==='streakWeightDays'?'consecutive days':'consecutive weeks';
 function achievementStats() {
   const stats = {workouts:0,sets:0,curlReps:0,legReps:0,pressReps:0,pullReps:0,runs:0,miles:0,sauna:0,weighins:0,weightDays:0};
   for (const log of loggedSessions()) {

@@ -52,3 +52,5 @@ Open http://localhost:8000/ on the same computer. Local-preview data is separate
 Publish the app files at the site root: `index.html`, `app.js`, the feature JavaScript files, `style.css`, `sw.js`, the web manifest, icons, font/license, and artwork. Keep personal JSON backups and screenshots outside the published folder.
 
 The service worker caches app assets for offline use. The custom font is supplied for personal/noncommercial use; see `daemon-sickness-license.txt`. Scripture attribution appears in the app footer.
+
+Achievement streaks use consecutive local calendar dates or Monday–Sunday weeks. Duplicate entries on a day do not add extra streak days. Future dates are excluded. Mystery goals stay hidden until unlocked, and earned badges remain unlocked if logs are later corrected.

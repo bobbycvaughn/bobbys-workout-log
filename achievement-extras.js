@@ -53,6 +53,62 @@ function recordAndWeekStats() {
     if(row.runs.length)result.evidence.balancedWeeks.push({activityDate:[days[2],row.runs.sort()[0]].sort().at(-1),source:'Week of '+dateLabel(week)+' · 3 full workout days and a run'});
   }
   for(const metric of Object.keys(result.evidence))result[metric]=result.evidence[metric].length;
+  const streaks=streakStats();
+  return {...result,...streaks,evidence:{...result.evidence,...streaks.evidence}};
+}
+// Calendar-day arithmetic uses UTC ordinals to avoid daylight-saving gaps.
+function streakStats() {
+  const dayNumber=day=>Math.floor(Date.parse(day+'T00:00:00Z')/86400000);
+  const dayLabel=number=>new Date(number*86400000).toISOString().slice(0,10);
+  const monday=day=>day-((day+3)%7+7)%7;
+  const weeks=new Map(), weightDays=new Set();
+  const weekFor=day=>{const key=monday(dayNumber(day));if(!weeks.has(key))weeks.set(key,{workouts:new Set(),runs:new Set(),walks:new Set(),sauna:new Set(),weight:new Set(),movement:new Set()});return weeks.get(key);};
+  for(const log of loggedSessions().filter(log=>log.date<=today)) {
+    const week=weekFor(log.date);
+    if(isCompleteWorkout(log))week.workouts.add(log.date);
+    if(workoutResults(log).some(group=>group.sets.some(set=>set.done)))week.movement.add(log.date);
+  }
+  for(const entry of activities.filter(entry=>entry.date<=today)) {
+    const week=weekFor(entry.date);
+    if(isRunningEntry(entry)){week.runs.add(entry.date);week.movement.add(entry.date);}
+    if(entry.type==='run'&&['walk','mixed'].includes(entry.mode))week.movement.add(entry.date);
+    if(entry.type==='run'&&entry.mode==='walk')week.walks.add(entry.date);
+    if(entry.type==='sauna')week.sauna.add(entry.date);
+    if(entry.type==='weight'){week.weight.add(entry.date);weightDays.add(dayNumber(entry.date));}
+  }
+  const qualifications={
+    streakWorkoutWeeks:w=>w.workouts.size>=1,
+    streakFullWeeks:w=>w.workouts.size>=3,
+    streakRunWeeks:w=>w.runs.size>=1,
+    streakDoubleRunWeeks:w=>w.runs.size>=2,
+    streakWalkWeeks:w=>w.walks.size>=1,
+    streakSaunaWeeks:w=>w.sauna.size>=1,
+    streakWeightWeeks:w=>w.weight.size>=1,
+    streakBalancedWeeks:w=>w.workouts.size>=3&&w.runs.size>=1,
+    streakMovementWeeks:w=>w.movement.size>=2,
+  };
+  const result={evidence:{}};
+  const measure=(metric,entries,step)=>{
+    let previous=null,current=0,best=0;const evidence=[];
+    for(const [period,activityDate] of entries.sort((a,b)=>a[0]-b[0])) {
+      current=previous!==null&&period-previous===step?current+1:1;
+      if(current>best){best=current;evidence[best-1]={activityDate,source:best+' consecutive '+(step===1?'days':'weeks')+' · '+streakTracks.find(track=>track[0]===metric)[2]};}
+      previous=period;
+    }
+    result[metric]=best;result.evidence[metric]=evidence;
+  };
+  for(const [metric,qualifies] of Object.entries(qualifications)) {
+    const entries=[];
+    for(const [period,week] of weeks)if(qualifies(week)) {
+      let dates;
+      if(metric==='streakFullWeeks')dates=[...week.workouts].sort().slice(0,3);
+      else if(metric==='streakBalancedWeeks')dates=[...[...week.workouts].sort().slice(0,3),[...week.runs].sort()[0]];
+      else {const key={streakWorkoutWeeks:'workouts',streakRunWeeks:'runs',streakDoubleRunWeeks:'runs',streakWalkWeeks:'walks',streakSaunaWeeks:'sauna',streakWeightWeeks:'weight',streakMovementWeeks:'movement'}[metric];dates=[...week[key]].sort().slice(0,['streakDoubleRunWeeks','streakMovementWeeks'].includes(metric)?2:1);}
+      entries.push([period,dates.sort().at(-1)]);
+    }
+    measure(metric,entries,7);
+  }
+  measure('streakWeightDays',[...weightDays].map(day=>[day,dayLabel(day)]),1);
   return result;
 }
 function updateShowcaseTitle() {
