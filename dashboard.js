@@ -35,7 +35,7 @@ function weekSummary(offset = 0) {
     row.push(entry.amount); daily.set(entry.date,row);
   }
   const weights = [...daily].sort(([a],[b]) => a.localeCompare(b)).map(([day,values]) => ({day,amount:values.reduce((a,b)=>a+b,0)/values.length}));
-  const badges = achievementList.filter(a => awards[a.id] && Number.isFinite(Date.parse(awards[a.id])) && includes(localDate(new Date(awards[a.id]))));
+  const badges = achievementList.filter(a => awards[a.id] && Number.isFinite(Date.parse(awards[a.id])) && includes(localDate(new Date(awards[a.id])))).sort(compareBadgeDifficulty);
   return {start,end,workouts:logs.filter(isCompleteWorkout).length, sessions:logs.filter(log => workoutResults(log).some(g => g.sets.some(s => s.done))).length,
     sets:logs.flatMap(workoutResults).reduce((sum,g) => sum + g.sets.filter(s => s.done).length,0),
     miles:runs.reduce((sum,e)=>sum+e.miles,0),runs:runs.length,sauna:entries.filter(e=>e.type==='sauna').length,weights,badges};
@@ -66,7 +66,7 @@ function renderWeeklyRecap() {
     ${recapOffset ? '<button id="current-week">This week</button>' : ''}
     <div class="dashboard-stats"><div class="stat"><strong>${summary.workouts}</strong>Workouts complete</div><div class="stat"><strong>${Number(summary.miles.toFixed(2))} mi</strong>${summary.runs} runs</div></div>
     <p>${summary.sessions} workout sessions logged · ${summary.sets} completed sets · ${summary.sauna} sauna visits</p>
-    <h4>Weight trend</h4><p>${weightTrend}</p><h4>Badges earned · ${summary.badges.length}</h4>
+    <h4>Weight trend</h4><p>${weightTrend}</p><h4>Trophy Case · ${summary.badges.length}</h4>
     <div class="favorite-badges">${summary.badges.map(a=>`<div><button type="button" class="badge-mini-replay" data-replay-achievement="${a.id}" aria-label="View ${a.name} badge">${badgeArt(a)}</button><span>${a.name}</span><small class="badge-reason">${achievementDescription(a)}</small></div>`).join('') || '<p>No new badges this week. Every logged session builds progress.</p>'}</div>`;
   target.querySelector('#previous-week').onclick=()=>{recapOffset--;renderWeeklyRecap();};
   target.querySelector('#next-week').onclick=()=>{recapOffset=Math.min(0,recapOffset+1);renderWeeklyRecap();};

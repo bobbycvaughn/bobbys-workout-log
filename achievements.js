@@ -84,6 +84,29 @@ function badgeTierName(achievement) {
   if (isSuperBadge(achievement)) return 'Super';
   return achievement.tier === 'challenge' ? (isGreenFlame(achievement) ? 'Green Flame' : 'Blue Flame') : 'Gold';
 }
+// Effort thresholds are specific to each activity, rather than comparing raw reps to visits.
+const badgeDifficultyThresholds = {
+  workouts:[10,40,100,500], sets:[100,300,750,1000],
+  curlReps:[100,400,800,1000], legReps:[100,400,800,1000],
+  pressReps:[100,400,800,1000], pullReps:[100,400,800,1000],
+  runs:[10,50,150,500], miles:[10,100,400,1000],
+  sauna:[10,50,150,500], weighins:[10,50,150,500], weightDays:[7,40,180,500],
+  weightRecords:[3,10,25,50], repRecords:[3,10,25,50], distanceRecords:[2,3,5,10],
+  completeWeeks:[2,4,8,12], balancedWeeks:[2,4,8,12],
+};
+function badgeDifficulty(achievement) {
+  const thresholds=badgeDifficultyThresholds[achievement.metric] || [10,50,100,1000];
+  const effort=1+thresholds.filter(target=>achievement.target>=target).length;
+  const tier=isSuperBadge(achievement)?5:isGreenFlame(achievement)?4:achievement.tier==='challenge'?3:1;
+  return Math.max(effort,tier);
+}
+function compareBadgeDifficulty(a,b) {
+  const scale=a=>a.target/(badgeDifficultyThresholds[a.metric]?.[3] || 1000);
+  return badgeDifficulty(b)-badgeDifficulty(a) || scale(b)-scale(a) || a.id.localeCompare(b.id);
+}
+function badgeDifficultyLabel(achievement) {
+  return 'Difficulty '+badgeDifficulty(achievement)+' of 5';
+}
 function achievementDescription(achievement, unlocked = true) {
   const n = achievement.target;
   const plural = (singular, multiple) => n === 1 ? singular : multiple;
@@ -150,7 +173,7 @@ function badgeArt(achievement) {
   }).join(' ');
   const sunburst = unlocked ? `<g class="badge-sunburst"><circle cx="50" cy="48" r="57" fill="#ffd875" opacity=".13"/><polygon points="${rays}" fill="#e9ad35" stroke="#ffe29a" stroke-width=".6"/><circle cx="50" cy="48" r="43" fill="#ffd365"/></g>` : '';
   const flames = unlocked && elite ? `<g class="${superBadge ? 'badge-black-flames' : green ? 'badge-green-flames' : 'badge-blue-flames'}"><circle cx="50" cy="48" r="54" fill="${flameColor}" opacity=".2"/>${Array.from({length:12},(_,i)=>`<g transform="rotate(${i*30} 50 48)"><path d="M41 17C28 4 48 0 46-15C65-4 67 6 57 19C60 7 53 4 54-3C49 5 43 8 47 18Z" fill="${flameColor}" stroke="${flameEdge}" stroke-width=".7"/><path d="M47 16C41 8 51 6 52 0C59 8 57 13 52 20Z" fill="${flameCore}"/></g>`).join('')}</g>` : '';
-  return `<svg class="award-badge ${unlocked ? 'is-unlocked' : 'is-locked'} ${elite && unlocked ? 'challenge-earned' : ''} ${green && unlocked ? 'green-earned' : ''} ${superBadge && unlocked ? 'super-earned' : ''}" viewBox="-16 -18 132 140" aria-hidden="true">${elite ? flames : sunburst}<polygon points="${points}" fill="hsl(${(n*7)%40},70%,${18+n%8}%)" stroke="#ff8074" stroke-width="2"/><circle cx="50" cy="48" r="30" fill="#160909" stroke="#a4433a"/><text x="50" y="57" text-anchor="middle" fill="#fff2ee" font-size="27">${symbols[achievement.category]}</text><path d="M18 76H82L76 99H24Z" fill="#a82425" stroke="#ff8074"/><text x="50" y="92" text-anchor="middle" fill="white" font-size="13">${n}</text>${Array.from({length:n%5+1},(_,i)=>`<circle cx="${38+i*6}" cy="17" r="1.8" fill="#ffd0a2"/>`).join('')}</svg>`;
+  return `<svg class="award-badge ${unlocked ? 'is-unlocked' : 'is-locked'} ${elite && unlocked ? 'challenge-earned' : ''} ${green && unlocked ? 'green-earned' : ''} ${superBadge && unlocked ? 'super-earned' : ''}" viewBox="-16 -18 132 140" aria-hidden="true">${elite ? flames : sunburst}<polygon points="${points}" fill="hsl(${(n*7)%40},70%,${18+n%8}%)" stroke="#ff8074" stroke-width="2"/><circle cx="50" cy="48" r="30" fill="#160909" stroke="#a4433a"/><text x="50" y="57" text-anchor="middle" fill="#fff2ee" font-size="27">${symbols[achievement.category]}</text><path d="M18 76H82L76 99H24Z" fill="#a82425" stroke="#ff8074"/><text x="50" y="92" text-anchor="middle" fill="white" font-size="13">${n}</text>${Array.from({length:5},(_,i)=>`<circle cx="${34+i*8}" cy="17" r="2.5" fill="${i<badgeDifficulty(achievement)?'#ffd0a2':'#301515'}" stroke="#ffd0a2" stroke-width=".7"/>`).join('')}</svg>`;
 }
 let awardQueue = [];
 function checkAchievements(celebrate = false, context = null) {
@@ -180,7 +203,7 @@ function showAward(award) {
   const content = document.querySelector('#award-content');
   content.classList.toggle('super-celebration',unlocked && isSuperBadge(award));
   content.classList.toggle('goal-preview',!unlocked);
-  content.innerHTML = `<p>${unlocked ? badgeTierName(award)+' achievement unlocked' : 'Achievement goal'}</p>${badgeArt(award)}<h2 id="award-heading">${award.name}</h2><p class="badge-reason">${achievementDescription(award,unlocked)}</p>${unlocked?'':'<p>'+Number(Math.min(achievementStats()[award.metric],award.target).toFixed(1))+' / '+award.target+' '+metricLabels[award.metric]+'</p>'}`;
+  content.innerHTML = `<p>${unlocked ? badgeTierName(award)+' achievement unlocked' : 'Achievement goal'}</p>${badgeArt(award)}<h2 id="award-heading">${award.name}</h2><p class="badge-difficulty">${badgeDifficultyLabel(award)}</p><p class="badge-reason">${achievementDescription(award,unlocked)}</p>${unlocked?'':'<p>'+Number(Math.min(achievementStats()[award.metric],award.target).toFixed(1))+' / '+award.target+' '+metricLabels[award.metric]+'</p>'}`;
   updateAwardFavorite();
   if (!popup.open) popup.showModal();
 }
@@ -221,7 +244,7 @@ function showNextAward() {
 let achievementFilter = 'all';
 function renderAchievements() {
   const {stats,xp} = checkAchievements(false);
-  view.innerHTML = `<h2>Achievements</h2><section class="card"><h3>Level ${Math.floor(xp/500)+1}</h3>${favoriteBadgesHTML()}<p>${xp} XP · ${500-xp%500} XP to next level</p><progress max="500" value="${xp%500}" aria-label="Level progress"></progress><p>${achievementList.filter(a=>awards[a.id]).length} of ${achievementList.length} unlocked</p><p>Choose up to 3 unlocked badges as favorites.</p><p>Tap any unlocked badge to watch its celebration again.</p><p>10 XP per set, 100 per full workout, 25 per run, 10 per sauna visit and per day weighed. A full workout means both original sets of all six exercises. Extra sets are optional.</p><p>Milestones add up across sessions. Unlocked badges stay yours if a log is corrected. XP follows your current logs. No rewards for heavier body weight, extreme temperatures, or long sauna stays.</p></section>`;
+  view.innerHTML = `<h2>Achievements</h2><section class="card"><h3>Level ${Math.floor(xp/500)+1}</h3>${favoriteBadgesHTML()}<p>${xp} XP · ${500-xp%500} XP to next level</p><progress max="500" value="${xp%500}" aria-label="Level progress"></progress><p>${achievementList.filter(a=>awards[a.id]).length} of ${achievementList.length} unlocked</p><p>Choose up to 3 unlocked badges as favorites.</p><p>Difficulty: 1–5 filled dots. More dots means a tougher goal. Toughest badges appear first.</p><p>Tap any unlocked badge to watch its celebration again.</p><p>10 XP per set, 100 per full workout, 25 per run, 10 per sauna visit and per day weighed. A full workout means both original sets of all six exercises. Extra sets are optional.</p><p>Milestones add up across sessions. Unlocked badges stay yours if a log is corrected. XP follows your current logs. No rewards for heavier body weight, extreme temperatures, or long sauna stays.</p></section>`;
   view.append(achievementTools(),achievementSettings());
   const filters = [['all','All'],['unlocked','Unlocked'],['progress','In progress'],['favorites','Favorites']];
   const controls = document.createElement('div');controls.className='badge-filters';controls.setAttribute('role','group');controls.setAttribute('aria-label','Filter achievements');
@@ -230,12 +253,13 @@ function renderAchievements() {
   const matchesFilter = a => achievementFilter==='all' || achievementFilter==='unlocked' && awards[a.id] || achievementFilter==='progress' && a.known && !awards[a.id] && stats[a.metric]>0 || achievementFilter==='favorites' && favoriteAwards.includes(a.id) && awards[a.id];
   let visibleCount = 0;
   const groups = [
-    ['Unlocked', a => Boolean(awards[a.id])],
+    ['Trophy Case', a => Boolean(awards[a.id])],
     ['Goals to chase', a => a.known && !awards[a.id]],
     ['Mystery badges', a => !a.known && !awards[a.id]],
   ];
   for (const [title,inGroup] of groups) {
     const visible = achievementList.filter(a=>inGroup(a) && matchesFilter(a));
+    if(title!=='Mystery badges') visible.sort(compareBadgeDifficulty);
     if (!visible.length) continue;
     visibleCount += visible.length;
     const heading=document.createElement('h3'); heading.textContent=title; view.append(heading);
@@ -247,7 +271,8 @@ function renderAchievements() {
       card.querySelector('.badge-status').dataset.compact=awards[a.id]?'Unlocked':a.known?Number(Math.min(stats[a.metric],a.target).toFixed(1))+' / '+a.target:'Locked';
       if (awards[a.id] || a.known) {
         const art=card.querySelector('.badge-art-slot');
-        const replay=document.createElement('button');replay.type='button';replay.className='badge-replay';replay.dataset.replayAchievement=a.id;replay.setAttribute('aria-label','View '+a.name+' badge');replay.title=awards[a.id]?'View badge animation':'View achievement goal';
+        const replay=document.createElement('button');replay.type='button';replay.className='badge-replay';replay.dataset.replayAchievement=a.id;replay.setAttribute('aria-label','View '+a.name+' badge');replay.title=badgeDifficultyLabel(a)+' · '+(awards[a.id]?'View badge animation':'View achievement goal');
+        replay.setAttribute('aria-label','View '+a.name+' badge. '+badgeDifficultyLabel(a));
         replay.append(...art.childNodes);art.append(replay);
         card.onclick=event=>{if(!event.target.closest('button'))replayAchievement(a.id);};
       }
