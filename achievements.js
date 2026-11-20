@@ -215,7 +215,7 @@ function trackLevelUp(xp, celebrate) {
 }
 function showLevelUp(level) {
   const popup=document.querySelector('#level-popup');
-  popup.querySelector('output').textContent=level.to;
+  popup.querySelector('output').textContent='LEVEL '+level.to+'!';
   popup.querySelector('.level-message').textContent=level.to>level.from+1?'You climbed '+(level.to-level.from)+' levels!':'Your effort is adding up!';
   popup.querySelector('.level-xp').textContent=((level.to-1)*500).toLocaleString()+' XP milestone reached';
   popup.showModal();

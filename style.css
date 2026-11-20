@@ -660,3 +660,5 @@ header #showcase-title { text-transform:none; letter-spacing:.04em; color:#ffd97
 @keyframes level-wave { from { transform:scale(.3);opacity:.8; } to { transform:scale(2.5);opacity:0; } }
 @keyframes level-sparks { 0% { opacity:0;transform:translate(0,0) rotate(-15deg); } 15% { opacity:1; } 100% { opacity:0;transform:translate(var(--drift),calc(-1 * var(--flight))) rotate(35deg); } }
 @keyframes level-glow { from { text-shadow:0 0 18px #ff3024; } to { text-shadow:0 0 35px #ff8d49,0 0 65px #ff3024; } }
+
+#level-popup output { font-size:clamp(2.2rem,11vw,3.5rem); white-space:nowrap; padding:22px 0; }
